@@ -4,9 +4,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/pegawai_model.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/siswa_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/pegawai_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/siswa_model.dart';
 
 class PemberianKelasSiswaController extends GetxController {
   final ConfigController configC = Get.find<ConfigController>();

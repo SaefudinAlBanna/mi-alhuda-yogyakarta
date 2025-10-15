@@ -106,6 +106,8 @@ abstract class Routes {
   static const PENGATURAN_ALASAN_KEUANGAN = _Paths.PENGATURAN_ALASAN_KEUANGAN;
   static const LAPORAN_PERUBAHAN_UP = _Paths.LAPORAN_PERUBAHAN_UP;
   static const PINDAH_SISWA_HALAQAH = _Paths.PINDAH_SISWA_HALAQAH;
+  static const PRINTER_SETTINGS = _Paths.PRINTER_SETTINGS;
+  static const ALOKASI_PEMBAYARAN = _Paths.ALOKASI_PEMBAYARAN;
 }
 
 abstract class _Paths {
@@ -210,4 +212,6 @@ abstract class _Paths {
   static const PENGATURAN_ALASAN_KEUANGAN = '/pengaturan-alasan-keuangan';
   static const LAPORAN_PERUBAHAN_UP = '/laporan-perubahan-up';
   static const PINDAH_SISWA_HALAQAH = '/pindah-siswa-halaqah';
+  static const PRINTER_SETTINGS = '/printer-settings';
+  static const ALOKASI_PEMBAYARAN = '/alokasi-pembayaran';
 }

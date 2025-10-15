@@ -3,9 +3,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/atp_model.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/modules/perangkat_ajar/controllers/perangkat_ajar_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/atp_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/modules/perangkat_ajar/controllers/perangkat_ajar_controller.dart';
 import 'package:uuid/uuid.dart';
 
 class AtpFormController extends GetxController {
@@ -67,7 +67,7 @@ class AtpFormController extends GetxController {
       // Buat daftar mapel unik dari data penugasan
       final mapelSet = <String>{};
       for (var tugas in penugasanGuru) {
-        mapelSet.add(tugas['namamatapelajaran']);
+        mapelSet.add(tugas['namaMapel']);
       }
       daftarMapelUnik.assignAll(mapelSet.toList()..sort());
 

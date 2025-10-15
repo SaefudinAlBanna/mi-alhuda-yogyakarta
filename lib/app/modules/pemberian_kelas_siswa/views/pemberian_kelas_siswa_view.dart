@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/pemberian_kelas_siswa_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/pegawai_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/pegawai_model.dart';
 
 class PemberianKelasSiswaView extends GetView<PemberianKelasSiswaController> {
   const PemberianKelasSiswaView({super.key});

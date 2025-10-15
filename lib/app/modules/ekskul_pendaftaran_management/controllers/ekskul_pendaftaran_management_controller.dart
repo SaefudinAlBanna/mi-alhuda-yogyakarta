@@ -8,8 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/ekskul_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/ekskul_model.dart';
 
 import '../../../services/pdf_helper_service.dart';
 

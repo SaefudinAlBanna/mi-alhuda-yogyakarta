@@ -2,7 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/halaqah_group_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/halaqah_group_model.dart';
 import 'package:get/get.dart';
 import '../controllers/halaqah_management_controller.dart';
 

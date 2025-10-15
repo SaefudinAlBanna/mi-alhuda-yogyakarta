@@ -3,7 +3,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/atp_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/atp_model.dart';
 import '../controllers/prota_prosem_controller.dart';
 
 class ProtaProsemView extends GetView<ProtaProsemController> {

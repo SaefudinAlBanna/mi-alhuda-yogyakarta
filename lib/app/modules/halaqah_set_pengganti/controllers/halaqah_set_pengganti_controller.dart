@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/halaqah_group_model.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/pegawai_simple_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/halaqah_group_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/pegawai_simple_model.dart';
 
 class HalaqahSetPenggantiController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

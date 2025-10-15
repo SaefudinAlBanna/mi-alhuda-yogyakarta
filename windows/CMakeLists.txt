@@ -1,10 +1,10 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(sdtq_telagailmu_yogyakarta LANGUAGES CXX)
+project(mi_alhuda_yogyakarta LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "sdtq_telagailmu_yogyakarta")
+set(BINARY_NAME "mi_alhuda_yogyakarta")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -106,3 +106,13 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# ==========================================================================
+# [KODE TAMBAHAN] Salin file helper eksternal ke direktori build
+# ==========================================================================
+install(
+  DIRECTORY "${CMAKE_SOURCE_DIR}/helpers/"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/helpers" # Tambahkan /helpers di sini
+  FILES_MATCHING PATTERN "*.exe"
+)
+# ==========================================================================

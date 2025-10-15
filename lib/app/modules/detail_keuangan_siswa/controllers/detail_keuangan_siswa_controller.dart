@@ -1,5 +1,9 @@
 // lib/app/modules/detail_keuangan_siswa/controllers/detail_keuangan_siswa_controller.dart
 
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:get_storage/get_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_usb_printer/flutter_usb_printer.dart';
@@ -10,14 +14,18 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:blue_thermal_printer/blue_thermal_printer.dart' as android_printer;
 
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/config_controller.dart';
 import '../../../controllers/dashboard_controller.dart'; // [BARU] Untuk cek hak akses
+import '../../../models/printer_model.dart';
 import '../../../models/siswa_keuangan_model.dart';
 import '../../../models/tagihan_model.dart';
 import '../../../models/transaksi_model.dart';
 import '../../../services/notifikasi_service.dart';
+import '../../../routes/app_pages.dart';
+import '../../../widgets/number_input_formatter.dart';
 
 class DetailKeuanganSiswaController extends GetxController with GetTickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -52,6 +60,8 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
   final RxMap<String, dynamic> infoSekolah = <String, dynamic>{}.obs;
   final RxList<String> alasanEditUP = <String>[].obs; // [BARU] Untuk menampung alasan dari Firestore
 
+  final RxString namaWaliKelas = ''.obs;
+
   // [BARU] Getter untuk memeriksa otorisasi
   bool get isAllowedToModify => dashboardC.isBendaharaOrPimpinan;
 
@@ -61,22 +71,149 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
     siswa = Get.arguments as SiswaKeuanganModel;
     tabController = TabController(length: 0, vsync: this);
     ever(sppBulanTerpilih, _hitungTotalSppAkanDibayar);
-    _loadInitialData();
+    loadInitialData();
   }
 
-  Future<void> _loadInitialData() async {
+  Future<void> loadInitialData() async {
     isLoading.value = true;
     try {
       await Future.wait([
         _loadDataKeuangan(),
         _fetchInfoSekolah(),
-        if (isAllowedToModify) _fetchKonfigurasiKeuangan(), // [BARU] Ambil data alasan jika diizinkan
+        _fetchInfoWaliKelas(), // <-- TAMBAHKAN BARIS INI
+        if (isAllowedToModify) _fetchKonfigurasiKeuangan(),
       ]);
     } catch (e) {
       Get.snackbar("Error Kritis", "Gagal memuat data awal: ${e.toString()}");
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> _fetchInfoWaliKelas() async {
+  if (siswa.kelasId == null || siswa.kelasId!.isEmpty) {
+    namaWaliKelas.value = "N/A";
+    return;
+  }
+  try {
+    final kelasDoc = await _firestore
+        .collection('Sekolah').doc(configC.idSekolah)
+        .collection('tahunajaran').doc(configC.tahunAjaranAktif.value)
+        .collection('kelastahunajaran').doc(siswa.kelasId)
+        .get();
+
+    if (kelasDoc.exists && kelasDoc.data() != null) {
+      namaWaliKelas.value = kelasDoc.data()!['namaWaliKelas'] ?? 'Belum Diatur';
+    } else {
+      namaWaliKelas.value = 'Data Kelas Tidak Ditemukan';
+    }
+  } catch (e) {
+    namaWaliKelas.value = 'Gagal Memuat';
+    print("### Error fetch wali kelas: $e");
+  }
+}
+
+/// Menampilkan bottom sheet dengan rincian tunggakan.
+void showDetailTunggakan() {
+  final List<TagihanModel> daftarTunggakan = [];
+  final semuaTagihan = [...tagihanSPP, ...tagihanLainnya];
+  if (tagihanUangPangkal.value != null) {
+    semuaTagihan.add(tagihanUangPangkal.value!);
+  }
+  
+  // [PERBAIKAN #1] Dapatkan waktu saat ini untuk perbandingan
+  final now = DateTime.now();
+
+  for (var tagihan in semuaTagihan) {
+    if (tagihan.status != 'Lunas') {
+      
+      // [PERBAIKAN #2] Asumsikan semua adalah tunggakan, kecuali terbukti tidak
+      bool isTunggakan = true; 
+
+      // [PERBAIKAN #3] Tambahkan logika khusus untuk SPP
+      if (tagihan.jenisPembayaran == 'SPP') {
+        // Jika SPP belum memiliki tanggal jatuh tempo ATAU tanggalnya masih di masa depan,
+        // maka itu BUKAN tunggakan.
+        if (tagihan.tanggalJatuhTempo == null || tagihan.tanggalJatuhTempo!.toDate().isAfter(now)) {
+          isTunggakan = false;
+        }
+      }
+
+      // [PERBAIKAN #4] Hanya tambahkan ke daftar jika itu benar-benar tunggakan
+      if (isTunggakan) {
+        daftarTunggakan.add(tagihan);
+      }
+    }
+  }
+
+  // 2. Tampilkan Bottom Sheet
+  Get.bottomSheet(
+    Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Text("Detail Tunggakan", style: Get.textTheme.titleLarge),
+          const Divider(),
+
+          // Info Siswa
+          _buildDetailRow("Nama Siswa", siswa.namaLengkap),
+          _buildDetailRow("Kelas", siswa.kelasId?.split('-').first ?? "N/A"),
+          Obx(() => _buildDetailRow("Wali Kelas", namaWaliKelas.value)),
+          const SizedBox(height: 16),
+          
+          // Daftar Tunggakan
+          Text("Rincian:", style: Get.textTheme.titleMedium),
+          const SizedBox(height: 8),
+
+          // Gunakan Flexible agar ListView tidak overflow jika tunggakan banyak
+          Flexible(
+            child: daftarTunggakan.isEmpty
+                ? const Text("Tidak ada tunggakan saat ini.")
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: daftarTunggakan.length,
+                    itemBuilder: (context, index) {
+                      final tunggakan = daftarTunggakan[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text(tunggakan.deskripsi),
+                        trailing: Text(
+                          "Rp ${NumberFormat.decimalPattern('id_ID').format(tunggakan.sisaTagihan)}",
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    ),
+    isScrollControlled: true, // Penting agar tinggi bottom sheet bisa menyesuaikan
+  );
+}
+
+  // Helper widget untuk baris detail (mungkin sudah Anda miliki)
+  Widget _buildDetailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: TextStyle(color: Colors.grey.shade600)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
   }
 
   // [FUNGSI BARU] Mengambil daftar alasan edit Uang Pangkal dari Firestore
@@ -249,11 +386,11 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
       update(['fab']);
     });
   }
-  // ... (fungsi pembayaran SPP dan Umum tetap sama)
+
     void toggleBulanSpp(String idTagihan) {
-    if (sppBulanTerpilih.contains(idTagihan)) sppBulanTerpilih.remove(idTagihan);
-    else sppBulanTerpilih.add(idTagihan);
-  }
+      if (sppBulanTerpilih.contains(idTagihan)) sppBulanTerpilih.remove(idTagihan);
+      else sppBulanTerpilih.add(idTagihan);
+    }
 
   void _hitungTotalSppAkanDibayar(List<String> listId) {
     int total = 0;
@@ -287,7 +424,7 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
 
       await _firestore.runTransaction((transaction) async {
         final pencatatUid = configC.infoUser['uid'] ?? 'unknown';
-        final pencatatNama = _getPencatatNama();
+        final pencatatNama = getPencatatNama();
 
         final List<DocumentSnapshot> tagihanDocsToUpdate = [];
         for (var idTagihan in sppBulanTerpilih) {
@@ -333,7 +470,7 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
           tanggalBayar: DateTime.now(),
           metodePembayaran: "Tunai",
           keterangan: "Pembayaran ${sppBulanTerpilih.length} bulan SPP...",
-          dicatatOlehNama: _getPencatatNama(), idTagihanTerkait: sppBulanTerpilih.toList()
+          dicatatOlehNama: getPencatatNama(), idTagihanTerkait: sppBulanTerpilih.toList()
       );
 
       sppBulanTerpilih.clear();
@@ -366,7 +503,12 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
         children: [
           Text(tagihan.deskripsi, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          TextField(controller: jumlahBayarC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Jumlah Bayar", prefixText: "Rp ", border: OutlineInputBorder())),
+          TextField(controller: jumlahBayarC, 
+          keyboardType: TextInputType.number,
+          inputFormatters: [NumberInputFormatter()],
+          decoration: const InputDecoration(labelText: "Jumlah Bayar", 
+          prefixText: "Rp ", 
+          border: OutlineInputBorder())),
           const SizedBox(height: 16),
           Obx(() => DropdownButtonFormField<String>(
             value: metodePembayaran.value,
@@ -422,7 +564,7 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
           transaction.set(siswaRef, {'uangPangkal': {'jumlahTerbayar': jumlahTerbayarBaru, 'status': statusBaru}}, SetOptions(merge: true));
         }
         final pencatatUid = configC.infoUser['uid'] ?? 'unknown';
-        final pencatatNama = _getPencatatNama();
+        final pencatatNama = getPencatatNama();
         transaction.set(transaksiRef.doc(), {
           'jumlahBayar': jumlahBayar,
           'tanggalBayar': Timestamp.now(),
@@ -450,7 +592,7 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
         tanggalBayar: DateTime.now(),
         metodePembayaran: metodePembayaran.value,
         keterangan: "Pembayaran untuk ${tagihan.deskripsi}. ${keteranganC.text.trim()}",
-        dicatatOlehNama: _getPencatatNama(), idTagihanTerkait: [tagihan.id]
+        dicatatOlehNama: getPencatatNama(), idTagihanTerkait: [tagihan.id]
       );
 
       Get.back(); 
@@ -465,13 +607,12 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
     }
   }
 
-  String _getPencatatNama() {
+  String getPencatatNama() {
     final alias = configC.infoUser['alias'] as String?;
     if (alias != null && alias.isNotEmpty && alias != 'N/A') return alias;
     return configC.infoUser['nama'] ?? 'User';
   }
 
-  // ... (fungsi showDetailTransaksiDialog, _buildDetailRowDialog, dan semua fungsi PDF tetap sama) ...
   
   // [FUNGSI BARU] Menampilkan dialog untuk edit nominal Uang Pangkal
   void showDialogEditUangPangkal(TagihanModel tagihan) {
@@ -495,6 +636,7 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
             TextFormField(
               controller: nominalBaruC,
               keyboardType: TextInputType.number,
+              inputFormatters: [NumberInputFormatter()],
               decoration: const InputDecoration(labelText: "Nominal Tagihan Baru", prefixText: "Rp ", border: OutlineInputBorder()),
               validator: (val) => (int.tryParse(val ?? '0') ?? 0) <= 0 ? "Nominal tidak valid" : null,
             ),
@@ -552,7 +694,7 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
       }
       final String finalStatus = (nominalBaru <= finalJumlahTerbayar) ? 'Lunas' : 'Belum Lunas';
       
-      final pencatat = {'uid': configC.infoUser['uid'], 'nama': _getPencatatNama()};
+      final pencatat = {'uid': configC.infoUser['uid'], 'nama': getPencatatNama()};
       
       // [PERBAIKAN KUNCI] Buat timestamp di sisi klien SEBELUM membangun log.
       final Timestamp logTimestamp = Timestamp.now();
@@ -847,166 +989,55 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
     );
   }
 
-  // Future<void> printReceipt(TransaksiModel trx, String format) async {
-  //   isProcessingPdf.value = true;
-  //   try {
-  //     final Uint8List pdfBytes;
-  //     if (format == "Thermal") {
-  //       pdfBytes = await _generatePdfThermal(trx);
-  //     } else {
-  //       pdfBytes = await _generatePdfA4(trx);
-  //     }
-      
-  //     final String fileName = 'nota_${siswa.namaLengkap.replaceAll(' ', '_')}_${trx.id}.pdf';
-  //     if (format == "Share") {
-  //       await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
-  //     } else {
-  //       await Printing.layoutPdf(onLayout: (pdfFormat) => pdfBytes);
-  //     }
-  //   } catch (e) {
-  //     Get.snackbar("Error", "Gagal memproses PDF: $e");
-  //   } finally {
-  //     isProcessingPdf.value = false;
-  //   }
-  // }
-
   Future<void> printReceipt(TransaksiModel trx, String format) async {
-    // Kita tidak perlu isProcessingPdf di sini karena fungsi di dalamnya sudah menanganinya
+    // Jangan set isProcessingPdf di sini, biarkan fungsi di dalamnya yang mengatur
+
     try {
-      if (format == "Thermal" && GetPlatform.isWindows) {
-        // Jika formatnya Thermal DAN kita berjalan di Windows,
-        // panggil metode cetak via USB langsung yang baru.
-        Get.back(); // Tutup dialog pilihan printer
-        await _cetakStrukViaUsbLangsung(trx); // Panggil fungsi USB baru kita
-        
+      // --- [LOGIKA KUNCI] ---
+      if (format == "Thermal") {
+        // Jika formatnya thermal, panggil fungsi pintar kita,
+        // tidak peduli platformnya apa (fungsi pintar sudah menanganinya).
+        Get.back(); // Tutup dialog pilihan
+        await _cetakStrukThermalPintar(trx);
+
       } else {
-        // Untuk kasus lain (Thermal di Android, A4, Share), 
-        // gunakan logika PDF Anda yang sudah ada.
-        isProcessingPdf.value = true; // Set loading untuk proses PDF
-        final Uint8List pdfBytes;
-        if (format == "Thermal") {
-          pdfBytes = await _generatePdfThermal(trx);
-        } else {
-          pdfBytes = await _generatePdfA4(trx);
-        }
-        
-        final String fileName = 'nota_${siswa.namaLengkap.replaceAll(' ', '_')}_${trx.id}.pdf';
+        // Untuk semua format lain (A4, Dot Matrix, Share), gunakan alur PDF.
+        isProcessingPdf.value = true;
+        final Uint8List pdfBytes = await _generatePdfA4(trx);
+        final String fileName = 'kwitansi_${siswa.namaLengkap.replaceAll(' ', '_')}.pdf';
+
         if (format == "Share") {
           await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
         } else {
           await Printing.layoutPdf(onLayout: (pdfFormat) => pdfBytes);
         }
+        isProcessingPdf.value = false; // Matikan loading setelah selesai
       }
     } catch (e) {
       Get.snackbar("Error", "Gagal memproses cetak: $e");
-    } finally {
-      // Pastikan loading dihentikan hanya jika proses PDF yang berjalan
-      if (format != "Thermal" || !GetPlatform.isWindows) {
+      // Pastikan loading selalu mati jika ada error
+      if (isProcessingPdf.value) {
         isProcessingPdf.value = false;
       }
     }
   }
 
-  Future<void> _cetakStrukViaUsbLangsung(TransaksiModel trx) async {
+  Future<void> _cetakStrukThermalPintar(TransaksiModel trx) async {
     isProcessingPdf.value = true;
-    // [PERBAIKAN KUNCI #1] Buat sebuah 'instance' dari class printer.
-    final FlutterUsbPrinter printer = FlutterUsbPrinter();
-    bool? isConnected = false;
-  
-    try {
-      const int targetVendorId = 0x0FE6;
-      const int targetProductId = 0x811E;
-  
-      // [PERBAIKAN KUNCI #2] Panggil 'connect' dari 'instance' yang sudah dibuat.
-      isConnected = await printer.connect(targetVendorId, targetProductId);
-  
-      if (!isConnected!) { // Gunakan !isConnected karena return type-nya bool
-        throw Exception('Gagal terhubung ke printer USB. Pastikan printer menyala dan terhubung.');
-      }
-  
-      // Bagian membangun perintah ESC/POS ini sudah benar dan tidak perlu diubah.
-      final profile = await CapabilityProfile.load();
-      final generator = Generator(PaperSize.mm58, profile);
-      List<int> bytes = [];
-      // --- MULAI MEMBANGUN STRUK (Logika ini tetap sama) ---
-      final yayasan = infoSekolah.value['yayasan'] ?? '';
-      final namaSekolah = infoSekolah.value['namasekolah'] ?? 'MI Al-Huda YK';
-      bytes += generator.text(yayasan.toUpperCase(), styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text(namaSekolah.toUpperCase(), styles: const PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2, width: PosTextSize.size2));
-      bytes += generator.hr();
-      bytes += generator.text('BUKTI PEMBAYARAN', styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.hr(ch: '-');
-      bytes += generator.row([
-        PosColumn(text: 'Tanggal', width: 4),
-        PosColumn(text: DateFormat('dd/MM/yy HH:mm').format(trx.tanggalBayar), width: 8, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.row([
-        PosColumn(text: 'Petugas', width: 4),
-        PosColumn(text: trx.dicatatOlehNama, width: 8, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-       bytes += generator.row([
-        PosColumn(text: 'Siswa', width: 4),
-        PosColumn(text: siswa.namaLengkap, width: 8, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.hr(ch: '-');
-      bytes += generator.text(trx.keterangan, styles: const PosStyles(align: PosAlign.center));
-      bytes += generator.hr(ch: '-');
-      bytes += generator.row([
-        PosColumn(text: 'TOTAL BAYAR:', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(
-          text: "Rp ${NumberFormat.decimalPattern('id_ID').format(trx.jumlahBayar)}",
-          width: 6,
-          styles: const PosStyles(align: PosAlign.right, bold: true),
-        ),
-      ]);
-      bytes += generator.hr();
-      bytes += generator.text('Terima kasih', styles: const PosStyles(align: PosAlign.center));
-      bytes += generator.feed(2);
-      bytes += generator.cut();
-      // --- SELESAI MEMBANGUN STRUK ---
-  
-      // [PERBAIKAN KUNCI #3] Panggil metode 'write' (bukan printUSB) dari 'instance'.
-      await printer.write(Uint8List.fromList(bytes));
-      
-      Get.snackbar("Sukses", "Nota berhasil dikirim ke printer.", backgroundColor: Colors.green, colorText: Colors.white);
-  
-    } catch (e) {
-      Get.snackbar("Error Cetak USB", "Gagal mengirim ke printer: $e", duration: const Duration(seconds: 7));
-      print("### Error cetakStrukViaUsbLangsung: $e");
-    } finally {
-      // [PERBAIKAN KUNCI #4] Selalu putuskan koneksi setelah selesai.
-      if (isConnected != null && isConnected) {
-        await printer.close();
-      }
-      isProcessingPdf.value = false;
-    }
-  }
+    final _storage = GetStorage();
 
-  Future<void> _cetakStrukThermalLangsung(TransaksiModel trx) async {
-    isProcessingPdf.value = true;
     try {
-      // NAMA PRINTER HARUS SAMA PERSIS dengan yang ada di Control Panel Windows.
-      const String printerName = 'POS XX'; 
-  
-      // --- [PERUBAHAN UTAMA] ---
-      // 1. Dapatkan daftar semua printer yang terinstal di Windows
-      final List<Printer> printers = await Printing.listPrinters();
-      
-      // 2. Cari printer yang kita inginkan berdasarkan namanya
-      final Printer? selectedPrinter = printers.firstWhereOrNull((p) => p.name == printerName);
-  
-      if (selectedPrinter == null) {
-        throw Exception('Printer "$printerName" tidak ditemukan. Pastikan nama sudah benar dan printer terinstal.');
+      // [LANGKAH 1] Baca konfigurasi printer dari "Buku Catatan" yang benar.
+      final printerJson = _storage.read('selected_thermal_printer');
+      if (printerJson == null) {
+        throw Exception("Printer struk belum diatur.");
       }
-      // --- [AKHIR PERUBAHAN UTAMA] ---
-  
-  
-      // Inisialisasi generator perintah ESC/POS (ini tetap sama)
+      final PrinterDevice selectedPrinter = PrinterDevice.fromJson(printerJson);
+
+      // [LANGKAH 2] Siapkan data cetak (tidak ada perubahan di sini).
       final profile = await CapabilityProfile.load();
       final generator = Generator(PaperSize.mm58, profile);
       List<int> bytes = [];
-  
-      // --- MULAI MEMBANGUN STRUK (Logika ini tidak berubah) ---
       final yayasan = infoSekolah.value['yayasan'] ?? '';
       final namaSekolah = infoSekolah.value['namasekolah'] ?? 'MI Al-Huda YK';
       bytes += generator.text(yayasan.toUpperCase(), styles: const PosStyles(align: PosAlign.center, bold: true));
@@ -1041,21 +1072,85 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
       bytes += generator.text('Terima kasih', styles: const PosStyles(align: PosAlign.center));
       bytes += generator.feed(2);
       bytes += generator.cut();
-      // --- SELESAI MEMBANGUN STRUK ---
-  
-  
-      // --- [PERUBAHAN UTAMA KEDUA] ---
-      // Kirim byte mentah ke printer yang dipilih menggunakan Printing.directPrintPdf
-      await Printing.directPrintPdf(
-        printer: selectedPrinter,
-        onLayout: (format) => Uint8List.fromList(bytes),
-      );
-      // --- [AKHIR PERUBAHAN UTAMA KEDUA] ---
+
+      // [LANGKAH 3] Jalankan logika cetak sesuai platform.
+    if (GetPlatform.isWindows) {
+      // Logika Windows Anda sudah benar, menggunakan selectedPrinter
+      if (selectedPrinter.type != PrinterType.usb || selectedPrinter.vendorId == null || selectedPrinter.productId == null) {
+        throw Exception("Printer USB yang valid belum dipilih.");
+      }
+
+      String exePath = Platform.resolvedExecutable;
+      String exeDir = path.dirname(exePath);
+      String scriptPath = path.join(exeDir, 'data', 'helpers', 'print_helper.exe');
+
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = path.join(tempDir.path, 'printjob.bin');
+      await File(tempPath).writeAsBytes(bytes);
+
+      // Kirim VID dan PID sebagai argumen ke helper.exe
+      final result = await Process.run(scriptPath, [
+        selectedPrinter.vendorId!.toRadixString(16), // Kirim sebagai Hex
+        selectedPrinter.productId!.toRadixString(16),// Kirim sebagai Hex
+        tempPath
+      ]);
+
+      if (result.exitCode != 0) throw Exception('Skrip helper gagal: ${result.stderr}');
+      await File(tempPath).delete();
+
+      } else if (GetPlatform.isAndroid) {
+      // --- [PERBAIKAN KUNCI DI SINI] ---
+      // Kita sekarang menggunakan objek 'selectedPrinter' yang sudah ada
+      android_printer.BlueThermalPrinter bluetooth = android_printer.BlueThermalPrinter.instance;
+      List<android_printer.BluetoothDevice> devices = await bluetooth.getBondedDevices();
+      
+      String targetName = selectedPrinter.name.replaceFirst('[Bluetooth] ', '');
+      final targetDevice = devices.firstWhereOrNull((d) => d.name == targetName);
+      
+      if (targetDevice == null) {
+        throw Exception("Perangkat Bluetooth '$targetName' tidak ditemukan atau belum di-pairing.");
+      }
+
+      await bluetooth.connect(targetDevice);
+      bool? isConnected = await bluetooth.isConnected;
+
+      if (isConnected == true) {
+        await bluetooth.writeBytes(Uint8List.fromList(bytes));
+        await bluetooth.disconnect();
+      } else {
+        throw Exception("Gagal terhubung ke printer Bluetooth.");
+      }
+      // --- [AKHIR PERBAIKAN] ---
+    }
   
       Get.snackbar("Sukses", "Nota berhasil dikirim ke printer.", backgroundColor: Colors.green, colorText: Colors.white);
   
-    } catch (e) {
-      Get.snackbar("Error Cetak Langsung", "Gagal mengirim ke printer: $e");
+       } catch (e) {
+      // --- [PENYEMPURNAAN BERDASARKAN IDE ANDA] ---
+      final errorMessage = e.toString();
+      if (errorMessage.contains("Printer struk belum diatur")) {
+        // Jika errornya spesifik, tawarkan untuk langsung ke pengaturan
+        Get.dialog(
+          AlertDialog(
+            title: const Text("Printer Belum Diatur"),
+            content: const Text("Anda perlu mengatur printer struk terlebih dahulu. Buka halaman pengaturan sekarang?"),
+            actions: [
+              TextButton(onPressed: Get.back, child: const Text("Batal")),
+              ElevatedButton(
+                onPressed: () {
+                  Get.back(); // Tutup dialog
+                  Get.toNamed(Routes.PRINTER_SETTINGS); // Buka halaman pengaturan
+                },
+                child: const Text("Ya, Buka Pengaturan"),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Untuk semua error lainnya, tampilkan snackbar seperti biasa
+        Get.snackbar("Error Cetak", "Proses cetak gagal: $errorMessage", duration: const Duration(seconds: 8));
+      }
+      // --- [AKHIR PENYEMPURNAAN] ---
     } finally {
       isProcessingPdf.value = false;
     }
@@ -1238,6 +1333,32 @@ class DetailKeuanganSiswaController extends GetxController with GetTickerProvide
       ),
     );
   }
+
+  void goToAlokasiPembayaran() {
+    // 1. Kumpulkan semua tagihan yang belum lunas
+    final List<TagihanModel> tagihanBelumLunas = [];
+    final semuaTagihan = [...tagihanSPP, ...tagihanLainnya];
+    if (tagihanUangPangkal.value != null) {
+      semuaTagihan.add(tagihanUangPangkal.value!);
+    }
+
+    for (var tagihan in semuaTagihan) {
+      if (tagihan.status != 'Lunas') {
+        tagihanBelumLunas.add(tagihan);
+      }
+    }
+
+    // 2. Kirim data siswa dan daftar tagihan sebagai argumen
+    Get.toNamed(Routes.ALOKASI_PEMBAYARAN, arguments: {
+      'siswa': siswa,
+      'tagihan': tagihanBelumLunas,
+    });
+  }
+
+  // void goToAlokasiPembayaran() {
+  //   // Kita tidak perlu lagi mengirim 'arguments'
+  //   Get.toNamed(Routes.ALOKASI_PEMBAYARAN);
+  // }
 
   @override
   void onClose() {

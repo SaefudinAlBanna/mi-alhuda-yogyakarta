@@ -1,8 +1,8 @@
 // lib/app/modules/home/views/placeholder_view.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/auth_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/auth_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
 
 class PlaceholderView extends StatelessWidget {
   final String pageTitle;

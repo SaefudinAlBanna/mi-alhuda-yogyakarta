@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../../widgets/number_input_formatter.dart';
 import '../controllers/buat_tagihan_tahunan_controller.dart';
 
 class BuatTagihanTahunanView extends GetView<BuatTagihanTahunanController> {
@@ -152,6 +153,7 @@ class BuatTagihanTahunanView extends GetView<BuatTagihanTahunanController> {
                         child: TextFormField(
                           controller: controller.uangPangkalControllers[siswa.uid],
                           keyboardType: TextInputType.number,
+                          inputFormatters: [NumberInputFormatter()],
                           decoration: const InputDecoration(
                             prefixText: "Rp ",
                             border: OutlineInputBorder(),

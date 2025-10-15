@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/atp_model.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/nilai_harian_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/atp_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/nilai_harian_model.dart';
 import '../controllers/input_nilai_siswa_controller.dart';
 
 class InputNilaiSiswaView extends GetView<InputNilaiSiswaController> {

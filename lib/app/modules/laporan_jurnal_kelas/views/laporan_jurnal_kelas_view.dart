@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/kelas_simple_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/kelas_simple_model.dart';
 import '../controllers/laporan_jurnal_kelas_controller.dart';
 
 class LaporanJurnalKelasView extends GetView<LaporanJurnalKelasController> {

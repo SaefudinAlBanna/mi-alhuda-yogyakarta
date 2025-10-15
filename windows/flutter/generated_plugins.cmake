@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   flutter_localization
   geolocator_windows
+  permission_handler_windows
   printing
   share_plus
   url_launcher_windows

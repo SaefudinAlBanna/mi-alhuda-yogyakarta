@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dotted_border/dotted_border.dart'; // Pastikan import ini ada
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/modules/info_sekolah/controllers/info_sekolah_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/modules/info_sekolah/controllers/info_sekolah_controller.dart';
 
 class InfoSekolahFormView extends GetView<InfoSekolahController> {
   const InfoSekolahFormView({Key? key}) : super(key: key);

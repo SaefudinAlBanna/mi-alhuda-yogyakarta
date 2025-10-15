@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/atp_model.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/modules/perangkat_ajar/controllers/perangkat_ajar_controller.dart';
-// import 'package:sdtq_telagailmu_yogyakarta/app/services/pdf_export_service.dart'; // Akan kita gunakan nanti
+import 'package:mi_alhuda_yogyakarta/app/models/atp_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/modules/perangkat_ajar/controllers/perangkat_ajar_controller.dart';
+// import 'package:mi_alhuda_yogyakarta/app/services/pdf_export_service.dart'; // Akan kita gunakan nanti
 
 class ProtaProsemController extends GetxController {
   final PerangkatAjarController _perangkatAjarC = Get.find<PerangkatAjarController>();

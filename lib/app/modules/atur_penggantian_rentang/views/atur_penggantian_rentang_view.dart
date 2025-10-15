@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/pegawai_simple_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/pegawai_simple_model.dart';
 import '../controllers/atur_penggantian_rentang_controller.dart';
 
 class AturPenggantianRentangView extends GetView<AturPenggantianRentangController> {

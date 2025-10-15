@@ -3,10 +3,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/dashboard_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/atp_model.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/modul_ajar_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/dashboard_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/atp_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/modul_ajar_model.dart';
 import 'package:uuid/uuid.dart';
 
 class PerangkatAjarController extends GetxController {

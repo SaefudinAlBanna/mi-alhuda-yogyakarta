@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/dashboard_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/acara_kalender_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/dashboard_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/acara_kalender_model.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class ManajemenKalenderAkademikController extends GetxController {

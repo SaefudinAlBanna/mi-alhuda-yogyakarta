@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../models/tagihan_model.dart';
 import '../../../models/transaksi_model.dart';
 import '../controllers/detail_keuangan_siswa_controller.dart';
+import '../../../routes/app_pages.dart';
 
 class DetailKeuanganSiswaView extends GetView<DetailKeuanganSiswaController> {
   const DetailKeuanganSiswaView({Key? key}) : super(key: key);
@@ -23,13 +24,28 @@ class DetailKeuanganSiswaView extends GetView<DetailKeuanganSiswaController> {
         appBar: AppBar(
           title: Text(controller.siswa.namaLengkap),
           actions: [
-            Obx(() => controller.isProcessingPdf.value
-              ? const Padding(padding: EdgeInsets.all(16.0), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white)))
-              : IconButton(
-                  icon: const Icon(Icons.print_outlined),
-                  onPressed: controller.exportPdfLaporanSiswa,
-                  tooltip: "Cetak Laporan Keuangan Siswa",
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Obx(() => controller.isProcessingPdf.value
+                  ? const Padding(padding: EdgeInsets.all(16.0), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white)))
+                  : IconButton(
+                      icon: const Icon(Icons.print_outlined),
+                      onPressed: controller.exportPdfLaporanSiswa,
+                      tooltip: "Cetak Laporan Keuangan Siswa",
+                    ),
                 ),
+
+                IconButton(
+                  icon: const Icon(Icons.settings), // Ikon gerigi (settings)
+                  tooltip: "Pengaturan Aplikasi",
+                  onPressed: () {
+                    // Tampilkan dialog/menu pilihan pengaturan
+                    // atau langsung navigasi jika hanya ada satu pilihan
+                    Get.toNamed(Routes.PRINTER_SETTINGS);
+                  },
+                ),
+              ],
             ),
           ],
           bottom: TabBar(
@@ -58,30 +74,40 @@ class DetailKeuanganSiswaView extends GetView<DetailKeuanganSiswaController> {
     });
   }
 
-  // ... (widget _buildTotalTunggakanCard, _buildSppTab, _buildSppCard, _buildDividerTunggakan tetap sama) ...
   Widget _buildTotalTunggakanCard() {
-    return Obx(() => Card(
-      margin: const EdgeInsets.all(16),
-      color: controller.totalTunggakan.value > 0 ? Colors.red.shade50 : Colors.green.shade50,
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text("Total Tunggakan Saat Ini", style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(
-              "Rp ${NumberFormat.decimalPattern('id_ID').format(controller.totalTunggakan.value)}",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: controller.totalTunggakan.value > 0 ? Colors.red.shade700 : Colors.green.shade700,
+    // Bungkus Card dengan GestureDetector
+    return GestureDetector(
+      onTap: controller.showDetailTunggakan, // <-- PANGGIL FUNGSI BARU DI SINI
+      child: Card(
+        margin: const EdgeInsets.all(16),
+        color: controller.totalTunggakan.value > 0 ? Colors.red.shade50 : Colors.green.shade50,
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Total Tunggakan Saat Ini", style: TextStyle(fontWeight: FontWeight.bold)),
+                  if (controller.totalTunggakan.value > 0)
+                    Text("Ketuk untuk melihat rincian", style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                ],
               ),
-            ),
-          ],
+              Text(
+                "Rp ${NumberFormat.decimalPattern('id_ID').format(controller.totalTunggakan.value)}",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: controller.totalTunggakan.value > 0 ? Colors.red.shade700 : Colors.green.shade700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ));
+    );
   }
 
 
@@ -239,29 +265,53 @@ class DetailKeuanganSiswaView extends GetView<DetailKeuanganSiswaController> {
   }
   
    Widget _buildFabs() {
-    return GetBuilder<DetailKeuanganSiswaController>(
-      id: 'fab', 
-      builder: (_) {
-        if (controller.tabTitles.isEmpty) return const SizedBox.shrink();
-        
-        final currentTab = controller.tabTitles[controller.tabController.index];
-
-        if (currentTab == "SPP") {
-          return Obx(() {
-            if (controller.totalSppAkanDibayar.value > 0) {
-              return FloatingActionButton.extended(
+      return GetBuilder<DetailKeuanganSiswaController>(
+          id: 'fab', 
+          builder: (_) {
+            if (controller.tabTitles.isEmpty) return const SizedBox.shrink();
+            
+            final currentTab = controller.tabTitles[controller.tabController.index];
+    
+            // Buat daftar FAB
+            final List<Widget> fabs = [];
+    
+            // FAB untuk Bayar SPP
+            if (currentTab == "SPP" && controller.totalSppAkanDibayar.value > 0) {
+              fabs.add(FloatingActionButton.extended(
+                heroTag: 'fab_spp',
                 onPressed: controller.showDialogPembayaranSpp,
-                label: Text("Bayar SPP (Rp ${NumberFormat.decimalPattern('id_ID').format(controller.totalSppAkanDibayar.value)})"),
+                label: Text("Bayar SPP"),
                 icon: const Icon(Icons.payment),
-              );
+              ));
             }
-            return const SizedBox.shrink();
-          });
-        }
-        return const SizedBox.shrink();
-      }
-    );
-  }
+    
+            // [FAB BARU] FAB untuk Alokasi Lumpsum
+            // Hanya tampilkan jika user berhak memodifikasi
+            if(controller.isAllowedToModify) {
+               fabs.add(FloatingActionButton.extended(
+                heroTag: 'fab_lumpsum',
+                onPressed: controller.goToAlokasiPembayaran,
+                // onPressed: () => Get.toNamed(Routes.ALOKASI_PEMBAYARAN),
+                label: const Text("Bayar Lumpsum"),
+                icon: const Icon(Icons.all_out),
+                backgroundColor: Colors.lightBlueAccent,
+              ));
+            }
+    
+            // Tampilkan FAB dalam bentuk Column jika ada lebih dari satu
+            if (fabs.isEmpty) return const SizedBox.shrink();
+            if (fabs.length == 1) return fabs.first;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                fabs.first,
+                const SizedBox(height: 8),
+                if (fabs.length > 1) fabs.last,
+              ],
+            );
+          }
+        );
+    }
 
   Widget _buildDetailRow(String title, String value, {bool isTotal = false}) {
     return Padding(

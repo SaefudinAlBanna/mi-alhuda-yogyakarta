@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/enums/user_role_enum.dart';
+import 'package:mi_alhuda_yogyakarta/app/enums/user_role_enum.dart';
 import '../controllers/pegawai_controller.dart';
 
 class PegawaiView extends GetView<PegawaiController> {

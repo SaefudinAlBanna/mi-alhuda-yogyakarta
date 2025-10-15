@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../widgets/number_input_formatter.dart';
 import '../controllers/create_edit_buku_controller.dart';
 
 class CreateEditBukuView extends GetView<CreateEditBukuController> {
@@ -27,7 +28,11 @@ class CreateEditBukuView extends GetView<CreateEditBukuController> {
             const SizedBox(height: 16),
             TextFormField(controller: controller.deskripsiC, decoration: const InputDecoration(labelText: "Deskripsi Singkat"), maxLines: 3),
             const SizedBox(height: 16),
-            TextFormField(controller: controller.hargaC, decoration: const InputDecoration(labelText: "Harga Total", prefixText: "Rp "), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Wajib diisi' : null),
+            TextFormField(controller: controller.hargaC,
+            inputFormatters: [NumberInputFormatter()],
+            decoration: const InputDecoration(labelText: "Harga Total", 
+            prefixText: "Rp "), 
+            keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Wajib diisi' : null),
             const Divider(height: 32),
             Obx(() => SwitchListTile(
               title: const Text("Apakah ini Paket Buku?"),

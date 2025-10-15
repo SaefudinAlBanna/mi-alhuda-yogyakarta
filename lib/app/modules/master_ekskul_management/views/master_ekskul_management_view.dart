@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/ekskul_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/ekskul_model.dart';
 
 import '../../../routes/app_pages.dart';
 import '../controllers/master_ekskul_management_controller.dart';

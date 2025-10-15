@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/auth_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/routes/app_pages.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/auth_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/routes/app_pages.dart';
 import '../controllers/login_controller.dart';
 
 // [PERBAIKAN] Ubah menjadi GetView<LoginController>

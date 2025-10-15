@@ -1,6 +1,6 @@
 // lib/app/models/pegawai_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/enums/user_role_enum.dart';
+import 'package:mi_alhuda_yogyakarta/app/enums/user_role_enum.dart';
 
 class PegawaiModel {
   final String uid;

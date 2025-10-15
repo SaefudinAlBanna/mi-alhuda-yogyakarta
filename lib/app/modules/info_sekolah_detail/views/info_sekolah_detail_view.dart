@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/modules/info_sekolah/controllers/info_sekolah_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/modules/info_sekolah/controllers/info_sekolah_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class InfoSekolahDetailView extends GetView<InfoSekolahController> {

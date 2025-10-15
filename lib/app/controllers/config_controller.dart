@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/dashboard_controller.dart'; // Pastikan path ini benar
-import 'package:sdtq_telagailmu_yogyakarta/app/routes/app_pages.dart'; // Pastikan path ini benar
+import 'package:mi_alhuda_yogyakarta/app/controllers/dashboard_controller.dart'; // Pastikan path ini benar
+import 'package:mi_alhuda_yogyakarta/app/routes/app_pages.dart'; // Pastikan path ini benar
 import 'auth_controller.dart';
 
 enum AppStatus { loading, unauthenticated, needsNewPassword, authenticated }

@@ -3,9 +3,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/auth_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/routes/app_pages.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/auth_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/routes/app_pages.dart';
 
 class LoginController extends GetxController {
   final AuthController authController = Get.find<AuthController>();

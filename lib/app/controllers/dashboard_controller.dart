@@ -5,9 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/routes/app_pages.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/carousel_item_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/routes/app_pages.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/carousel_item_model.dart';
 
 import '../modules/home/pages/dashboard_page.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/modules/atur_guru_pengganti/views/atur_guru_pengganti_view.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/modules/atur_penggantian_rentang/views/atur_penggantian_rentang_view.dart';
+import 'package:mi_alhuda_yogyakarta/app/modules/atur_guru_pengganti/views/atur_guru_pengganti_view.dart';
+import 'package:mi_alhuda_yogyakarta/app/modules/atur_penggantian_rentang/views/atur_penggantian_rentang_view.dart';
 import '../controllers/atur_penggantian_host_controller.dart';
 
 class AturPenggantianHostView extends GetView<AturPenggantianHostController> {

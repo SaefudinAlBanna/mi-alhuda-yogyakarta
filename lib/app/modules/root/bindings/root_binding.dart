@@ -23,10 +23,10 @@ class RootBinding extends Bindings {
 // // lib/app/modules/root/bindings/root_binding.dart
 // import 'package:get/get.dart';
 
-// import 'package:sdtq_telagailmu_yogyakarta/app/controllers/dashboard_controller.dart';
-// import 'package:sdtq_telagailmu_yogyakarta/app/modules/home/controllers/home_controller.dart';
-// import 'package:sdtq_telagailmu_yogyakarta/app/modules/login/controllers/login_controller.dart';
-// import 'package:sdtq_telagailmu_yogyakarta/app/modules/new_password/controllers/new_password_controller.dart';
+// import 'package:mi_alhuda_yogyakarta/app/controllers/dashboard_controller.dart';
+// import 'package:mi_alhuda_yogyakarta/app/modules/home/controllers/home_controller.dart';
+// import 'package:mi_alhuda_yogyakarta/app/modules/login/controllers/login_controller.dart';
+// import 'package:mi_alhuda_yogyakarta/app/modules/new_password/controllers/new_password_controller.dart';
 
 // class RootBinding extends Bindings {
 //   @override

@@ -3,8 +3,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/atp_model.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/routes/app_pages.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/atp_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/routes/app_pages.dart';
 import '../../../models/modul_ajar_model.dart';
 import '../controllers/perangkat_ajar_controller.dart';
 

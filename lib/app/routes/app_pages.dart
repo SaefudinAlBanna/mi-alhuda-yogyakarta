@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 
 import '../modules/absensi_wali_kelas/bindings/absensi_wali_kelas_binding.dart';
 import '../modules/absensi_wali_kelas/views/absensi_wali_kelas_view.dart';
+import '../modules/alokasi_pembayaran/bindings/alokasi_pembayaran_binding.dart';
+import '../modules/alokasi_pembayaran/views/alokasi_pembayaran_view.dart';
 import '../modules/atp_form/bindings/atp_form_binding.dart';
 import '../modules/atp_form/views/atp_form_view.dart';
 import '../modules/atur_guru_pengganti/bindings/atur_guru_pengganti_binding.dart';
@@ -162,6 +164,8 @@ import '../modules/perangkat_ajar/bindings/perangkat_ajar_binding.dart';
 import '../modules/perangkat_ajar/views/perangkat_ajar_view.dart';
 import '../modules/pindah_siswa_halaqah/bindings/pindah_siswa_halaqah_binding.dart';
 import '../modules/pindah_siswa_halaqah/views/pindah_siswa_halaqah_view.dart';
+import '../modules/printer_settings/bindings/printer_settings_binding.dart';
+import '../modules/printer_settings/views/printer_settings_view.dart';
 import '../modules/profile/bindings/profile_binding.dart';
 import '../modules/profile/views/profile_view.dart';
 import '../modules/proses_kenaikan_kelas/bindings/proses_kenaikan_kelas_binding.dart';
@@ -667,6 +671,16 @@ class AppPages {
       name: _Paths.PINDAH_SISWA_HALAQAH,
       page: () => const PindahSiswaHalaqahView(),
       binding: PindahSiswaHalaqahBinding(),
+    ),
+    GetPage(
+      name: _Paths.PRINTER_SETTINGS,
+      page: () => const PrinterSettingsView(),
+      binding: PrinterSettingsBinding(),
+    ),
+    GetPage(
+      name: _Paths.ALOKASI_PEMBAYARAN,
+      page: () => const AlokasiPembayaranView(),
+      binding: AlokasiPembayaranBinding(),
     ),
   ];
 }

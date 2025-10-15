@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/controllers/config_controller.dart';
+import 'package:mi_alhuda_yogyakarta/app/controllers/config_controller.dart';
 import '../controllers/manajemen_peran_controller.dart';
 
 class ManajemenPeranView extends GetView<ManajemenPeranController> {

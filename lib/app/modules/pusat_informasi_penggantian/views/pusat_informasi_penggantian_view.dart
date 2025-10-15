@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:sdtq_telagailmu_yogyakarta/app/models/info_penggantian_model.dart';
+import 'package:mi_alhuda_yogyakarta/app/models/info_penggantian_model.dart';
 import '../../../routes/app_pages.dart';
 import '../controllers/pusat_informasi_penggantian_controller.dart';
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../routes/app_pages.dart';
+import '../../../widgets/number_input_formatter.dart';
 import '../controllers/pengaturan_biaya_controller.dart';
 
 class PengaturanBiayaView extends GetView<PengaturanBiayaController> {
@@ -99,6 +100,7 @@ class PengaturanBiayaView extends GetView<PengaturanBiayaController> {
                       child: TextFormField(
                         controller: controller.uangPangkalControllers[siswa.uid],
                         keyboardType: TextInputType.number,
+                        inputFormatters: [NumberInputFormatter()],
                         decoration: const InputDecoration(prefixText: "Rp ", border: OutlineInputBorder(), isDense: true),
                       ),
                     ),
@@ -124,6 +126,7 @@ class PengaturanBiayaView extends GetView<PengaturanBiayaController> {
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
+      inputFormatters: [NumberInputFormatter()],
       decoration: InputDecoration(
         labelText: label,
         prefixText: "Rp ",
