@@ -1,0 +1,43 @@
+# ============================================
+# 🔹 EOL (End of Line) normalization
+# ============================================
+# Ensure all text files use LF in the repo, CRLF only in Windows checkouts
+* text=auto eol=lf
+
+# ============================================
+# 🔹 Language-specific handling
+# ============================================
+*.dart text
+*.yaml text
+*.yml text
+*.gradle text
+*.xml text
+*.json text
+*.md text
+*.txt text
+*.html text
+*.css text
+*.js text
+*.ts text
+
+# ============================================
+# 🔹 Binary files (no diff)
+# ============================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.keystore binary
+*.jks binary
+*.so binary
+
+# ============================================
+# 🔹 Prevent merge conflicts in lock files
+# ============================================
+pubspec.lock merge=union
