@@ -20,7 +20,7 @@ class RincianTunggakanView extends GetView<RincianTunggakanController> {
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Text(
               "Filter Kelas: ${controller.filterKelas}",
-              style: TextStyle(color: Colors.white.withOpacity(0.8)),
+              style: TextStyle(color: Colors.black.withOpacity(0.8)),
             ),
           ),
         ),

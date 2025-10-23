@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../routes/app_pages.dart';
 import '../controllers/cari_siswa_keuangan_controller.dart';
 
 class CariSiswaKeuanganView extends GetView<CariSiswaKeuanganController> {
@@ -14,6 +15,23 @@ class CariSiswaKeuanganView extends GetView<CariSiswaKeuanganController> {
         // [BARU] Judul AppBar dinamis berdasarkan mode
         title: Obx(() => Text(controller.mode.value == 'pilih' ? 'Pilih Siswa' : 'Cari Siswa')),
         centerTitle: true,
+        actions: [
+        if (controller.dashC.isPimpinan)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_outlined),
+            tooltip: "Editor Jadwal",
+            onSelected: (value) {
+              if (value == 'Biaya') {Get.toNamed(Routes.PENGATURAN_BIAYA);}
+              if (value == 'Tagihan') {Get.toNamed(Routes.BUAT_TAGIHAN_TAHUNAN);}
+              if (value == 'Laporan') {Get.toNamed(Routes.LAPORAN_KEUANGAN);}
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'Biaya', child: ListTile(leading: Icon(Icons.dashboard_customize_outlined), title: Text("Biaya"))),
+              const PopupMenuItem(value: 'Tagihan', child: ListTile(leading: Icon(Icons.grading_rounded), title: Text("Tagihan"))),
+              const PopupMenuItem(value: 'Laporan', child: ListTile(leading: Icon(Icons.schedule_sharp), title: Text("Laporan"))),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [

@@ -99,7 +99,7 @@ class AtpFormController extends GetxController {
       // Filter penugasan untuk mapel yang dipilih, lalu ambil kelasnya
       final kelasSet = <String>{};
       for (var tugas in penugasanGuru) {
-        if (tugas['namamatapelajaran'] == newValue) {
+        if (tugas['namaMapel'] == newValue) {
           // Ambil hanya angka dari ID kelas (e.g., '4' dari '4A-2024')
           final kelasAngka = tugas['idKelas'].split('-').first.replaceAll(RegExp(r'[^0-9]'), '');
           if (kelasAngka.isNotEmpty) kelasSet.add(kelasAngka);

@@ -10,6 +10,7 @@ class SiswaModel {
   final String? namaPanggilan;
   final String? email;            // Email login (saat ini {nisn}@telagailmu.com)
   final String? fotoProfilUrl;
+  final bool memilikiCatatanBk;
 
   // --- KATEGORI: DATA PRIBADI ---
   final String? jenisKelamin;
@@ -58,6 +59,7 @@ class SiswaModel {
     required this.uid,
     required this.nisn,
     required this.namaLengkap,
+    required this.memilikiCatatanBk,
     
     // Opsional
     this.namaPanggilan,
@@ -133,7 +135,9 @@ class SiswaModel {
       isProfileComplete: data['isProfileComplete'] ?? false,
       mustChangePassword: data['mustChangePassword'] ?? false,
       createdAt: toDateTime(data['createdAt']),
-      createdBy: data['createdBy'],
+      createdBy: data['createdBy'], 
+      memilikiCatatanBk: data['memilikiCatatanBk'] ?? false, 
+      
     );
   }
 }

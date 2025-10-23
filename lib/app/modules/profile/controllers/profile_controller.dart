@@ -16,14 +16,6 @@ class ProfileController extends GetxController {
   final StorageController storageC = Get.find<StorageController>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // --- TEXT EDITING CONTROLLERS ---
-  // late TextEditingController namaController;
-  // late TextEditingController aliasController;
-  // late TextEditingController noTelpController;
-  // late TextEditingController nipController;
-  // late TextEditingController alamatController;
-  // late TextEditingController tglGabungController;
-
   TextEditingController namaController = TextEditingController();
   TextEditingController aliasController = TextEditingController();
   TextEditingController noTelpController = TextEditingController();

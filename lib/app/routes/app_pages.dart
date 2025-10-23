@@ -18,6 +18,9 @@ import '../modules/buat_tagihan_tahunan/bindings/buat_tagihan_tahunan_binding.da
 import '../modules/buat_tagihan_tahunan/views/buat_tagihan_tahunan_view.dart';
 import '../modules/cari_siswa_keuangan/bindings/cari_siswa_keuangan_binding.dart';
 import '../modules/cari_siswa_keuangan/views/cari_siswa_keuangan_view.dart';
+import '../modules/catatan_bk/bindings/catatan_bk_binding.dart';
+import '../modules/catatan_bk/views/catatan_bk_detail_view.dart';
+import '../modules/catatan_bk/views/catatan_bk_list_view.dart';
 import '../modules/create_edit_buku/bindings/create_edit_buku_binding.dart';
 import '../modules/create_edit_buku/views/create_edit_buku_view.dart';
 import '../modules/create_edit_ekskul/bindings/create_edit_ekskul_binding.dart';
@@ -36,12 +39,12 @@ import '../modules/daftar_siswa_permapel/bindings/daftar_siswa_permapel_binding.
 import '../modules/daftar_siswa_permapel/views/daftar_siswa_permapel_view.dart';
 import '../modules/daftar_siswa_pindah_halaqoh/bindings/daftar_siswa_pindah_halaqoh_binding.dart';
 import '../modules/daftar_siswa_pindah_halaqoh/views/daftar_siswa_pindah_halaqoh_view.dart';
+import '../modules/dashboard_bk/bindings/dashboard_bk_binding.dart';
+import '../modules/dashboard_bk/views/dashboard_bk_view.dart';
 import '../modules/data_sarpras/bindings/data_sarpras_binding.dart';
 import '../modules/data_sarpras/views/data_sarpras_view.dart';
 import '../modules/detail_keuangan_siswa/bindings/detail_keuangan_siswa_binding.dart';
 import '../modules/detail_keuangan_siswa/views/detail_keuangan_siswa_view.dart';
-import '../modules/detail_siswa/bindings/detail_siswa_binding.dart';
-import '../modules/detail_siswa/views/detail_siswa_view.dart';
 import '../modules/editor_jadwal/bindings/editor_jadwal_binding.dart';
 import '../modules/editor_jadwal/views/editor_jadwal_view.dart';
 import '../modules/ekskul_pendaftaran_management/bindings/ekskul_pendaftaran_management_binding.dart';
@@ -120,6 +123,8 @@ import '../modules/laporan_perubahan_up/bindings/laporan_perubahan_up_binding.da
 import '../modules/laporan_perubahan_up/views/laporan_perubahan_up_view.dart';
 import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
+import '../modules/manajemen_dashboard/bindings/manajemen_dashboard_binding.dart';
+import '../modules/manajemen_dashboard/views/manajemen_dashboard_view.dart';
 import '../modules/manajemen_kalender_akademik/bindings/manajemen_kalender_akademik_binding.dart';
 import '../modules/manajemen_kalender_akademik/views/manajemen_kalender_akademik_view.dart';
 import '../modules/manajemen_komite/bindings/manajemen_komite_binding.dart';
@@ -266,11 +271,6 @@ class AppPages {
       name: _Paths.DAFTAR_NILAI,
       page: () => DaftarNilaiView(),
       binding: DaftarNilaiBinding(),
-    ),
-    GetPage(
-      name: _Paths.DETAIL_SISWA,
-      page: () => const DetailSiswaView(),
-      binding: DetailSiswaBinding(),
     ),
     GetPage(
       name: _Paths.DAFTAR_SISWA_PINDAH_HALAQOH,
@@ -681,6 +681,26 @@ class AppPages {
       name: _Paths.ALOKASI_PEMBAYARAN,
       page: () => const AlokasiPembayaranView(),
       binding: AlokasiPembayaranBinding(),
+    ),
+    GetPage(
+      name: _Paths.MANAJEMEN_DASHBOARD,
+      page: () => const ManajemenDashboardView(),
+      binding: ManajemenDashboardBinding(),
+    ),
+    GetPage(
+      name: _Paths.CATATAN_BK_LIST,
+      page: () => const CatatanBkListView(),
+      binding: CatatanBkBinding(),
+    ),
+    GetPage(
+      name: _Paths.CATATAN_BK_DETAIL,
+      page: () => const CatatanBkDetailView(),
+      binding: CatatanBkBinding(),
+    ),
+    GetPage(
+      name: _Paths.DASHBOARD_BK,
+      page: () => const DashboardBkView(),
+      binding: DashboardBkBinding(),
     ),
   ];
 }

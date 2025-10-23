@@ -120,10 +120,10 @@ class ImportSiswaController extends GetxController {
           continue;
         }
 
-        final String emailSiswa = "$nisn@telagailmu.com";
+        final String emailSiswa = "$nisn@mialhuda.com";
 
         try {
-          UserCredential siswaCredential = await _auth.createUserWithEmailAndPassword(email: emailSiswa, password: 'telagailmu');
+          UserCredential siswaCredential = await _auth.createUserWithEmailAndPassword(email: emailSiswa, password: 'alhuda');
           
           // --- PERBAIKAN KRUSIAL: REBUT KEMBALI SESI ADMIN DI DALAM LOOP ---
           await _auth.signInWithEmailAndPassword(email: adminEmail, password: adminPassword);

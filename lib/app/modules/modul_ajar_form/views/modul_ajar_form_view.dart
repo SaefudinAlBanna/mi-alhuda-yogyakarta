@@ -23,20 +23,51 @@ class ModulAjarFormView extends GetView<ModulAjarFormController> {
           )),
         ],
       ),
-      body: SingleChildScrollView(
+      body: Obx(() {
+       if (controller.isPenugasanLoading.value) {
+         return const Center(child: CircularProgressIndicator());
+       }
+       return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle("1. Informasi Umum"),
-            _buildTextField(controller.mapelC, "Mata Pelajaran"),
+           _buildSectionTitle("1. Informasi Umum"),
+            Obx(() => DropdownButtonFormField<String>(
+                  value: controller.mapelTerpilih.value,
+                  hint: const Text("Pilih Mata Pelajaran"),
+                  items: controller.daftarMapelUnik.map((mapel) => DropdownMenuItem(value: mapel, child: Text(mapel))).toList(),
+                  onChanged: controller.onMapelChanged,
+                  decoration: const InputDecoration(labelText: 'Mata Pelajaran', border: OutlineInputBorder()),
+                )),
+            const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _buildTextField(controller.faseC, "Fase")),
+                Expanded(child: Obx(() => DropdownButtonFormField<String>(
+                      value: controller.kelasTerpilih.value,
+                      hint: const Text("Pilih Kelas"),
+                      items: controller.daftarKelasTersedia.map((kelas) => DropdownMenuItem(value: kelas, child: Text("Kelas $kelas"))).toList(),
+                      onChanged: controller.mapelTerpilih.value == null ? null : controller.onKelasChanged,
+                      decoration: InputDecoration(
+                        labelText: 'Kelas',
+                        border: const OutlineInputBorder(),
+                        filled: controller.mapelTerpilih.value == null,
+                        fillColor: Colors.grey.shade200,
+                      ),
+                    ))),
                 const SizedBox(width: 12),
-                Expanded(child: _buildTextField(controller.kelasC, "Kelas", keyboardType: TextInputType.number)),
+                Expanded(child: Obx(() => TextFormField(
+                      key: Key(controller.faseTerpilih.value), // Kunci untuk rebuild
+                      initialValue: controller.faseTerpilih.value,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'Fase', border: const OutlineInputBorder(),
+                        filled: true, fillColor: Colors.grey.shade200
+                      ),
+                    ))),
               ],
             ),
+            const SizedBox(height: 12), // Menambah jarak sebelum field Alokasi Waktu
             _buildTextField(controller.alokasiWaktuC, "Alokasi Waktu (Contoh: 2 JP)"),
             
             _buildSectionTitle("2. Kompetensi & Target"),
@@ -70,7 +101,8 @@ class ModulAjarFormView extends GetView<ModulAjarFormController> {
             _buildSesiPembelajaranSection(),
           ],
         ),
-      ),
+     );
+    }),
     );
   }
   

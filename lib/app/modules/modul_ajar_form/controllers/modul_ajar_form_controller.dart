@@ -20,9 +20,9 @@ class ModulAjarFormController extends GetxController {
   final RxBool isSaving = false.obs;
 
   // Controllers untuk data utama
-  final TextEditingController mapelC = TextEditingController();
-  final TextEditingController kelasC = TextEditingController();
-  final TextEditingController faseC = TextEditingController();
+  // final TextEditingController mapelC = TextEditingController();
+  // final TextEditingController kelasC = TextEditingController();
+  // final TextEditingController faseC = TextEditingController();
   final TextEditingController alokasiWaktuC = TextEditingController();
   final TextEditingController kompetensiAwalC = TextEditingController();
   final TextEditingController modelPembelajaranC = TextEditingController();
@@ -34,50 +34,63 @@ class ModulAjarFormController extends GetxController {
   final RxList<String> media = <String>[].obs;
   final RxList<String> sumberBelajar = <String>[].obs;
   final RxList<String> pertanyaanPemantik = <String>[].obs;
+
+  // TAMBAHKAN KODE INI:
+  final RxBool isPenugasanLoading = true.obs;
+  final List<Map<String, dynamic>> penugasanGuru = [];
+
+  final RxList<String> daftarMapelUnik = <String>[].obs;
+  final RxList<String> daftarKelasTersedia = <String>[].obs;
+  final Rxn<String> mapelTerpilih = Rxn<String>();
+  final Rxn<String> kelasTerpilih = Rxn<String>();
+  final RxString faseTerpilih = ''.obs;
   
   // State untuk sesi pembelajaran
   final RxList<SesiPembelajaranForm> sesiPembelajaranForms = <SesiPembelajaranForm>[].obs;
 
   @override
-  void onInit() {
-    super.onInit();
-    if (Get.arguments != null && Get.arguments is ModulAjarModel) {
-      isEditMode.value = true;
-      originalModul = Get.arguments as ModulAjarModel;
-      _fillFormWithData(originalModul!);
-    }
+void onInit() {
+  super.onInit();
+  _loadPenugasanGuru(); // <-- Panggil fungsi baru
+  if (Get.arguments != null && Get.arguments is ModulAjarModel) {
+    isEditMode.value = true;
+    originalModul = Get.arguments as ModulAjarModel;
+    // _fillFormWithData akan kita perbaiki nanti
   }
+}
 
 
   void _fillFormWithData(ModulAjarModel modul) {
-    mapelC.text = modul.mapel;
-    kelasC.text = modul.kelas.toString();
-    faseC.text = modul.fase;
+    // Menggunakan state dropdown
+    mapelTerpilih.value = modul.mapel;
+    onMapelChanged(modul.mapel); // Panggil ini untuk mengisi daftar kelas
+    kelasTerpilih.value = modul.kelas.toString();
+    faseTerpilih.value = modul.fase;
+
+    // Sisanya tetap sama
     alokasiWaktuC.text = modul.alokasiWaktu;
     kompetensiAwalC.text = modul.kompetensiAwal;
     modelPembelajaranC.text = modul.modelPembelajaran;
     tujuanPembelajaranC.text = modul.tujuanPembelajaran;
     pemahamanBermaknaC.text = modul.pemahamanBermakna;
-    
     profilPancasila.value = modul.profilPancasila;
     media.value = modul.media;
     sumberBelajar.value = modul.sumberBelajar;
     pertanyaanPemantik.value = modul.pertanyaanPemantik;
-    
     sesiPembelajaranForms.value = modul.kegiatanPembelajaran.map((sesi) => SesiPembelajaranForm.fromModel(sesi)).toList();
   }
 
   Future<void> imporTujuanPembelajaran() async {
-    if (mapelC.text.isEmpty || faseC.text.isEmpty) {
-      Get.snackbar("Informasi", "Silakan isi 'Mata Pelajaran' dan 'Fase' terlebih dahulu untuk mencari ATP yang cocok.");
-      return;
-    }
-    try {
-      final snapshot = await _firestore.collection('Sekolah').doc(configC.idSekolah).collection('atp')
-          .where('idTahunAjaran', isEqualTo: configC.tahunAjaranAktif.value)
-          .where('namaMapel', isEqualTo: mapelC.text)
-          .where('fase', isEqualTo: faseC.text)
-          .limit(1).get();
+    if (mapelTerpilih.value == null || faseTerpilih.value.isEmpty) {
+    Get.snackbar("Informasi", "Silakan pilih 'Mata Pelajaran' dan 'Kelas' terlebih dahulu.");
+    return;
+  }
+  try {
+    final snapshot = await _firestore.collection('Sekolah').doc(configC.idSekolah).collection('atp')
+        .where('idTahunAjaran', isEqualTo: configC.tahunAjaranAktif.value)
+        .where('namaMapel', isEqualTo: mapelTerpilih.value) // <- Perubahan
+        .where('fase', isEqualTo: faseTerpilih.value)       // <- Perubahan
+        .limit(1).get();
 
       if (snapshot.docs.isEmpty) {
         Get.snackbar("Tidak Ditemukan", "Tidak ada ATP yang cocok untuk mata pelajaran dan fase ini.");
@@ -105,7 +118,7 @@ class ModulAjarFormController extends GetxController {
 
     Future<void> saveModulAjar() async {
       // Validasi sederhana
-      if (mapelC.text.trim().isEmpty || kelasC.text.trim().isEmpty || faseC.text.trim().isEmpty) {
+      if (mapelTerpilih.value == null || kelasTerpilih.value == null || faseTerpilih.value.isEmpty) {
         Get.snackbar("Validasi Gagal", "Informasi umum (Mapel, Kelas, Fase) wajib diisi.");
         return;
       }
@@ -118,9 +131,9 @@ class ModulAjarFormController extends GetxController {
           idPenyusun: configC.infoUser['uid'],
           namaPenyusun: configC.infoUser['alias'] ?? configC.infoUser['nama'],
           idTahunAjaran: configC.tahunAjaranAktif.value,
-          mapel: mapelC.text.trim(),
-          kelas: int.tryParse(kelasC.text.trim()) ?? 0,
-          fase: faseC.text.trim(),
+          mapel: mapelTerpilih.value!,           // <- Perubahan
+          kelas: int.parse(kelasTerpilih.value!),// <- Perubahan
+          fase: faseTerpilih.value, 
           alokasiWaktu: alokasiWaktuC.text.trim(),
           kompetensiAwal: kompetensiAwalC.text.trim(),
           profilPancasila: profilPancasila.toList(),
@@ -153,10 +166,7 @@ class ModulAjarFormController extends GetxController {
 
 
     @override
-   void onClose() {
-      mapelC.dispose();
-      kelasC.dispose();
-      faseC.dispose();
+    void onClose() {
       alokasiWaktuC.dispose();
       kompetensiAwalC.dispose();
       modelPembelajaranC.dispose();
@@ -167,6 +177,64 @@ class ModulAjarFormController extends GetxController {
       }
       super.onClose();
     }
+
+    Future<void> _loadPenugasanGuru() async {
+  isPenugasanLoading.value = true;
+  try {
+    final snapshot = await _firestore
+        .collection('Sekolah').doc(configC.idSekolah)
+        .collection('pegawai').doc(configC.infoUser['uid'])
+        .collection('jadwal_mengajar').doc(configC.tahunAjaranAktif.value)
+        .collection('mapel_diampu').get();
+
+    penugasanGuru.assignAll(snapshot.docs.map((doc) => doc.data()).toList());
+    
+    final mapelSet = <String>{};
+    for (var tugas in penugasanGuru) {
+      mapelSet.add(tugas['namaMapel']);
+    }
+    daftarMapelUnik.assignAll(mapelSet.toList()..sort());
+
+    // Jika mode edit, panggil _fillFormWithData setelah data penugasan siap
+    if (isEditMode.value) {
+      _fillFormWithData(originalModul!);
+    }
+
+  } catch (e) {
+    Get.snackbar("Error", "Gagal memuat data penugasan mengajar Anda.");
+  } finally {
+    isPenugasanLoading.value = false;
+  }
+}
+
+void onMapelChanged(String? newValue) {
+  mapelTerpilih.value = newValue;
+  kelasTerpilih.value = null;
+  faseTerpilih.value = '';
+  daftarKelasTersedia.clear();
+
+  if (newValue != null) {
+    final kelasSet = <String>{};
+    for (var tugas in penugasanGuru) {
+      if (tugas['namaMapel'] == newValue) {
+        final kelasAngka = tugas['idKelas'].split('-').first.replaceAll(RegExp(r'[^0-9]'), '');
+        if (kelasAngka.isNotEmpty) kelasSet.add(kelasAngka);
+      }
+    }
+    daftarKelasTersedia.assignAll(kelasSet.toList()..sort());
+  }
+}
+
+void onKelasChanged(String? newValue) {
+  kelasTerpilih.value = newValue;
+  if (newValue != null) {
+    int kelasAngka = int.tryParse(newValue) ?? 0;
+    if (kelasAngka <= 2) faseTerpilih.value = 'A';
+    else if (kelasAngka <= 4) faseTerpilih.value = 'B';
+    else if (kelasAngka <= 6) faseTerpilih.value = 'C';
+    else faseTerpilih.value = '';
+  }
+}
 }
 
 // Helper class untuk form Sesi Pembelajaran

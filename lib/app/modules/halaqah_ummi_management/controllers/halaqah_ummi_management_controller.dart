@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../controllers/config_controller.dart';
+import '../../../controllers/dashboard_controller.dart';
 import '../../../models/halaqah_group_ummi_model.dart';
 import '../../../models/pegawai_simple_model.dart'; // [BARU] Import model pegawai
 import '../../../routes/app_pages.dart';
@@ -12,6 +13,7 @@ import '../../../routes/app_pages.dart';
 class HalaqahUmmiManagementController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ConfigController configC = Get.find<ConfigController>();
+  final DashboardController dashC = Get.find<DashboardController>();
 
   // [BARU] State untuk proses Ganti Pengampu
   final isProcessing = false.obs;

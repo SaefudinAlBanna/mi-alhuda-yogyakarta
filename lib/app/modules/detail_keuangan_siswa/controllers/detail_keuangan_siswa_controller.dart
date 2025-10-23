@@ -399,9 +399,27 @@ void showDetailTunggakan() {
       if (tagihan != null) total += tagihan.sisaTagihan;
     }
     totalSppAkanDibayar.value = total;
+
+    // [KUNCI REVISI] Beri tahu GetBuilder 'fab' untuk me-render ulang dirinya
+    update(['fab']); 
   }
 
   void showDialogPembayaranSpp() {
+    // [REVISI KUNCI #2] Tambahkan 'Guard Clause' di sini
+    if (totalSppAkanDibayar.value <= 0) {
+      Get.snackbar(
+        "Informasi", 
+        "Silakan centang satu atau lebih tagihan SPP yang akan dibayar.",
+        snackPosition: SnackPosition.TOP, // Lebih terlihat
+        margin: const EdgeInsets.all(12),
+        backgroundColor: Colors.amber.shade700,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4)
+      );
+      return; // Hentikan fungsi agar dialog konfirmasi tidak muncul
+    }
+  
+    // Jika total > 0, kode di bawah ini akan berjalan seperti biasa
     Get.defaultDialog(
       title: "Konfirmasi Pembayaran SPP",
       middleText: "Anda akan mencatat pembayaran SPP sebesar Rp ${NumberFormat.decimalPattern('id_ID').format(totalSppAkanDibayar.value)} untuk ${sppBulanTerpilih.length} bulan yang terpilih. Lanjutkan?",

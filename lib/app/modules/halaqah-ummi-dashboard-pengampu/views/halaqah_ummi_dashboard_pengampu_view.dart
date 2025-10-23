@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../models/halaqah_group_ummi_model.dart';
+import '../../../routes/app_pages.dart';
 import '../controllers/halaqah_ummi_dashboard_pengampu_controller.dart';
 
 class HalaqahUmmiDashboardPengampuView
@@ -12,6 +13,11 @@ class HalaqahUmmiDashboardPengampuView
       appBar: AppBar(
         title: const Text('Dashboard Halaqah Ummi'),
         centerTitle: true,
+        actions: [
+          if (controller.dashC.canManageHalaqah)
+          IconButton(onPressed: () => Get.toNamed(Routes.HALAQAH_UMMI_MANAGEMENT), 
+          icon: const Icon(Icons.group_add_outlined)), 
+        ],
       ),
       body: FutureBuilder<List<HalaqahGroupUmmiModel>>(
         future: controller.listGroupFuture,

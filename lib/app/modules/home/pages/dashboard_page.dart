@@ -1,3 +1,4 @@
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -81,7 +82,8 @@ class DashboardView extends GetView<DashboardController> {
             // SliverToBoxAdapter akan menampilkan widget ini hanya jika kondisi terpenuhi
             SliverToBoxAdapter(
               child: Obx(() {
-                if (controller.kepalaSekolah) {
+                // if (controller.kepalaSekolah) {
+                if (controller.isBendaharaOrPimpinan) {
                   // [PERBAIKAN KUNCI] Inisialisasi controller di sini
                   // agar state-nya terikat dengan lifecycle DashboardView.
                   Get.put(FinancialDashboardPimpinanController());

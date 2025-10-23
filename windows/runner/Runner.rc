@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.sdtq_telagailmu_yogyakarta" "\0"
-            VALUE "FileDescription", "sdtq_telagailmu_yogyakarta" "\0"
+            VALUE "CompanyName", "com.mi_alhuda_yogyakarta" "\0"
+            VALUE "FileDescription", "mi_alhuda_yogyakarta" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "sdtq_telagailmu_yogyakarta" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.sdtq_telagailmu_yogyakarta. All rights reserved." "\0"
-            VALUE "OriginalFilename", "sdtq_telagailmu_yogyakarta.exe" "\0"
-            VALUE "ProductName", "sdtq_telagailmu_yogyakarta" "\0"
+            VALUE "InternalName", "mi_alhuda_yogyakarta" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 com.mi_alhuda_yogyakarta. All rights reserved." "\0"
+            VALUE "OriginalFilename", "mi_alhuda_yogyakarta.exe" "\0"
+            VALUE "ProductName", "mi_alhuda_yogyakarta" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -195,6 +195,11 @@ class BuatTagihanTahunanController extends GetxController {
       final int totalSiswa = daftarSiswa.length;
 
       for (var siswa in daftarSiswa) {
+
+        if (siswa.kelasId == null || siswa.kelasId!.isEmpty) {
+          throw Exception("Siswa '${siswa.namaLengkap}' belum memiliki kelas. Proses dihentikan.");
+        }
+
         siswaDiproses++;
         progressMessage.value = "Memproses siswa: $siswaDiproses dari $totalSiswa\n(${siswa.namaLengkap})";
         await Future.delayed(const Duration(milliseconds: 10));
@@ -239,7 +244,7 @@ class BuatTagihanTahunanController extends GetxController {
       Get.snackbar("Berhasil", "Tagihan SPP telah diperbarui untuk ${daftarSiswa.length} siswa.", backgroundColor: Colors.green, colorText: Colors.white);
     } catch (e) {
       Get.back();
-      Get.snackbar("Error", "Gagal membuat tagihan SPP: ${e.toString()}");
+      Get.snackbar("Error", "Gagal membuat tagihan SPP: ${e.toString()}", backgroundColor: Colors.red, colorText: Colors.white, duration: Duration(seconds: 5));
     } finally {
       isProcessingSPP.value = false;
     }
@@ -289,6 +294,11 @@ class BuatTagihanTahunanController extends GetxController {
       final int totalSiswa = daftarSiswa.length;
 
       for (var siswa in daftarSiswa) {
+
+        if (siswa.kelasId == null || siswa.kelasId!.isEmpty) {
+          throw Exception("Siswa '${siswa.namaLengkap}' belum memiliki kelas. Proses dihentikan.");
+        }
+
         siswaDiproses++;
         progressMessage.value = "Memproses siswa: $siswaDiproses dari $totalSiswa\n(${siswa.namaLengkap})";
         await Future.delayed(const Duration(milliseconds: 10));
@@ -318,7 +328,7 @@ class BuatTagihanTahunanController extends GetxController {
       Get.snackbar("Berhasil", "Tagihan $jenisPembayaran telah diperbarui.", backgroundColor: Colors.green, colorText: Colors.white);
     } catch (e) {
       Get.back();
-      Get.snackbar("Error", "Gagal membuat tagihan: ${e.toString()}");
+      Get.snackbar("Error", "Gagal membuat tagihan: ${e.toString()}", backgroundColor: Colors.red, colorText: Colors.white, duration: Duration(seconds: 5));
     } finally {
       flag.value = false;
     }
@@ -350,6 +360,11 @@ class BuatTagihanTahunanController extends GetxController {
         final int totalSiswa = siswaUntukDitagihUP.length;
 
         for (var siswa in siswaUntukDitagihUP) {
+
+          if (siswa.kelasId == null || siswa.kelasId!.isEmpty) {
+              throw Exception("Siswa '${siswa.namaLengkap}' dalam daftar belum memiliki kelas. Hapus dari daftar dan coba lagi.");
+            }
+
             siswaDiproses++;
             progressMessage.value = "Memproses siswa: $siswaDiproses dari $totalSiswa\n(${siswa.namaLengkap})";
             await Future.delayed(const Duration(milliseconds: 10));
@@ -403,7 +418,7 @@ class BuatTagihanTahunanController extends GetxController {
 
     } catch (e) {
         Get.back();
-        Get.snackbar("Error", "Gagal membuat tagihan Uang Pangkal: ${e.toString()}");
+        Get.snackbar("Error", "Gagal membuat tagihan Uang Pangkal: ${e.toString()}", backgroundColor: Colors.red, colorText: Colors.white, duration: Duration(seconds: 5));
     } finally {
         isProcessingUP.value = false;
     }
@@ -455,6 +470,12 @@ class BuatTagihanTahunanController extends GetxController {
         siswaDiproses++;
         final data = doc.data();
         progressMessage.value = "Memproses: $siswaDiproses dari $totalSiswa\n(${data['namaSiswa']})";
+
+        final String? kelasSiswa = data['kelasSiswa'];
+        if (kelasSiswa == null || kelasSiswa.isEmpty) {
+          throw Exception("Data pendaftaran buku untuk '${data['namaSiswa']}' tidak memiliki informasi kelas. Proses dihentikan.");
+        }
+
         await Future.delayed(const Duration(milliseconds: 10));
 
         final uidSiswa = doc.id;
@@ -498,7 +519,7 @@ class BuatTagihanTahunanController extends GetxController {
 
     } catch (e) {
       Get.back();
-      Get.snackbar("Error", "Gagal membuat tagihan buku: ${e.toString()}");
+      Get.snackbar("Error", "Gagal membuat tagihan buku: ${e.toString()}", backgroundColor: Colors.red, colorText: Colors.white, duration: Duration(seconds: 5));
     } finally {
       isProcessingBuku.value = false;
     }

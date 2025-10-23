@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../models/halaqah_group_ummi_model.dart';
+import '../../../routes/app_pages.dart';
 import '../controllers/halaqah_ummi_management_controller.dart';
 
 class HalaqahUmmiManagementView extends GetView<HalaqahUmmiManagementController> {
@@ -15,6 +16,22 @@ class HalaqahUmmiManagementView extends GetView<HalaqahUmmiManagementController>
       appBar: AppBar(
         title: const Text('Manajemen Halaqah Ummi'),
         centerTitle: true,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.menu),
+            tooltip: "Editor Jadwal",
+            onSelected: (value) {
+              if (value == 'Dashboard') {Get.toNamed(Routes.HALAQAH_UMMI_DASHBOARD_KOORDINATOR);}
+              if (value == 'penugasan') {Get.toNamed(Routes.HALAQAH_UMMI_MANAJEMEN_PENGUJI);}
+              if (value == 'Jadwal') {Get.toNamed(Routes.HALAQAH_UMMI_JADWAL_PENGUJI);}
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'Dashboard', child: ListTile(leading: Icon(Icons.dashboard_customize_outlined), title: Text("Dashboard"))),
+              const PopupMenuItem(value: 'penugasan', child: ListTile(leading: Icon(Icons.grading_rounded), title: Text("penugasan"))),
+              const PopupMenuItem(value: 'Jadwal', child: ListTile(leading: Icon(Icons.schedule_sharp), title: Text("Jadwal"))),
+            ],
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: controller.streamHalaqahUmmiGroups(),

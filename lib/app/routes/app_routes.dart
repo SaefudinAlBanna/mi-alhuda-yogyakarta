@@ -16,7 +16,6 @@ abstract class Routes {
   static const DAFTAR_SISWA_PERMAPEL = _Paths.DAFTAR_SISWA_PERMAPEL;
   static const KELOMPOK_HALAQOH = _Paths.KELOMPOK_HALAQOH;
   static const DAFTAR_NILAI = _Paths.DAFTAR_NILAI;
-  static const DETAIL_SISWA = _Paths.DETAIL_SISWA;
   static const DAFTAR_SISWA_PINDAH_HALAQOH = _Paths.DAFTAR_SISWA_PINDAH_HALAQOH;
   static const DETAIL_NILAI_HALAQOH = _Paths.DETAIL_NILAI_HALAQOH;
   static const INFO_SEKOLAH_DETAIL = _Paths.INFO_SEKOLAH_DETAIL;
@@ -108,6 +107,11 @@ abstract class Routes {
   static const PINDAH_SISWA_HALAQAH = _Paths.PINDAH_SISWA_HALAQAH;
   static const PRINTER_SETTINGS = _Paths.PRINTER_SETTINGS;
   static const ALOKASI_PEMBAYARAN = _Paths.ALOKASI_PEMBAYARAN;
+  static const MANAJEMEN_DASHBOARD = _Paths.MANAJEMEN_DASHBOARD;
+  static const CATATAN_BK = _Paths.CATATAN_BK;
+  static const CATATAN_BK_LIST = _Paths.CATATAN_BK_LIST;
+  static const CATATAN_BK_DETAIL = _Paths.CATATAN_BK_DETAIL;
+  static const DASHBOARD_BK = _Paths.DASHBOARD_BK;
 }
 
 abstract class _Paths {
@@ -125,7 +129,6 @@ abstract class _Paths {
   static const DAFTAR_SISWA_PERMAPEL = '/daftar-siswa-permapel';
   static const KELOMPOK_HALAQOH = '/kelompok-halaqoh';
   static const DAFTAR_NILAI = '/daftar-nilai';
-  static const DETAIL_SISWA = '/detail-siswa';
   static const DAFTAR_SISWA_PINDAH_HALAQOH = '/daftar-siswa-pindah-halaqoh';
   static const DETAIL_NILAI_HALAQOH = '/detail-nilai-halaqoh';
   static const INFO_SEKOLAH_DETAIL = '/info-sekolah-detail';
@@ -214,4 +217,9 @@ abstract class _Paths {
   static const PINDAH_SISWA_HALAQAH = '/pindah-siswa-halaqah';
   static const PRINTER_SETTINGS = '/printer-settings';
   static const ALOKASI_PEMBAYARAN = '/alokasi-pembayaran';
+  static const MANAJEMEN_DASHBOARD = '/manajemen-dashboard';
+  static const CATATAN_BK = '/catatan-bk';
+  static const CATATAN_BK_LIST = '/catatan-bk-list';
+  static const CATATAN_BK_DETAIL = '/catatan-bk-detail';
+  static const DASHBOARD_BK = '/dashboard-bk';
 }

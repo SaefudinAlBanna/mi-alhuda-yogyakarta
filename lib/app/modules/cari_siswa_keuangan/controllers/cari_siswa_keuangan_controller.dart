@@ -4,12 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/config_controller.dart';
+import '../../../controllers/dashboard_controller.dart';
 import '../../../models/siswa_keuangan_model.dart';
 import '../../../routes/app_pages.dart';
 
 class CariSiswaKeuanganController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ConfigController configC = Get.find<ConfigController>();
+  final DashboardController dashC = Get.find<DashboardController>();
 
   final isLoading = true.obs;
   

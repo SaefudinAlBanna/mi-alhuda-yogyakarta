@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/config_controller.dart';
+import '../../../controllers/dashboard_controller.dart';
 import '../../../models/halaqah_group_ummi_model.dart';
 import '../../../routes/app_pages.dart';
 
@@ -10,6 +11,7 @@ class HalaqahUmmiDashboardPengampuController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ConfigController configC = Get.find<ConfigController>();
   final AuthController authC = Get.find<AuthController>();
+  final DashboardController dashC = Get.find<DashboardController>();
   
   late Future<List<HalaqahGroupUmmiModel>> listGroupFuture;
 

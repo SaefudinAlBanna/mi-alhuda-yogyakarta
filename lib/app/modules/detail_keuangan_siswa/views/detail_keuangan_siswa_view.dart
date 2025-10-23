@@ -175,7 +175,6 @@ class DetailKeuanganSiswaView extends GetView<DetailKeuanganSiswaController> {
       tagihanRelevant = controller.tagihanLainnya.where((t) => t.jenisPembayaran == jenisPembayaran).toList();
     }
     
-    // ... sisa logika tidak berubah
     return ListView(
       padding: const EdgeInsets.all(16),
       children: tagihanRelevant.map((tagihan) => _buildUmumCard(tagihan, isUangPangkal: isUangPangkalTab)).toList(),
@@ -226,7 +225,6 @@ class DetailKeuanganSiswaView extends GetView<DetailKeuanganSiswaController> {
     );
   }
 
-  // ... (sisa widget _buildRiwayatTab, _buildFabs, _buildDetailRow tetap sama)
    Widget _buildRiwayatTab() {
     return Obx(() {
       if (controller.riwayatTransaksi.isEmpty) {

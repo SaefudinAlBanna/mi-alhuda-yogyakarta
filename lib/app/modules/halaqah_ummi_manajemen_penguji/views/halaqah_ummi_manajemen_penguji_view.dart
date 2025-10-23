@@ -27,8 +27,9 @@ class HalaqahUmmiManajemenPengujiView extends GetView<HalaqahUmmiManajemenPenguj
             return Obx(() {
               final isSelected = controller.pengujiStatus[pengampu.uid] ?? false;
               return SwitchListTile(
-                title: Text(pengampu.nama),
-                subtitle: Text(pengampu.alias),
+                // --- [PERBAIKAN UI] Tampilkan nama yang lebih baik ---
+                title: Text(pengampu.displayName), // Gunakan displayName
+                subtitle: Text(pengampu.nama), // Tampilkan nama lengkap sebagai subtitle
                 value: isSelected,
                 onChanged: (value) {
                   controller.togglePenguji(pengampu.uid, value);
