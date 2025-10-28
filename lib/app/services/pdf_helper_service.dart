@@ -1,5 +1,6 @@
 // lib/app/services/pdf_helper_service.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -23,8 +24,8 @@ class PdfHelperService {
     required Map<String, dynamic> infoSekolah,
     required pw.MemoryImage logoImage,
     required pw.Font boldFont,
+    required pw.Font regularFont,
   }) {
-    // Fungsi ini tidak lagi async dan menerima aset sebagai parameter
     final yayasan = infoSekolah['yayasan'] ?? 'Yayasan Pendidikan';
     final namaSekolah = infoSekolah['namasekolah'] ?? infoSekolah['nama'] ?? 'MI Al-Huda Yogyakarta';
     final akreditasi = infoSekolah['akreditasi'] ?? '';
@@ -45,27 +46,25 @@ class PdfHelperService {
               pw.Text(yayasan.toUpperCase(), style: pw.TextStyle(font: boldFont, fontSize: 14)),
               pw.Text(namaSekolah.toUpperCase(), style: pw.TextStyle(font: boldFont, fontSize: 18)),
               if (akreditasi.isNotEmpty || npsn.isNotEmpty)
-                pw.Text("Terakreditasi: $akreditasi | NPSN: $npsn", style: const pw.TextStyle(fontSize: 9)),
+                pw.Text("Terakreditasi: $akreditasi | NPSN: $npsn", style: pw.TextStyle(font: regularFont, fontSize: 9)),
               if (alamat.isNotEmpty)
-                pw.Text("Alamat: $alamat", style: const pw.TextStyle(fontSize: 9)),
+                pw.Text("Alamat: $alamat", style: pw.TextStyle(font: regularFont, fontSize: 9)),
               if (telp.isNotEmpty || email.isNotEmpty)
-                pw.Text("Telp: $telp | Email: $email", style: const pw.TextStyle(fontSize: 9)),
+                pw.Text("Telp: $telp | Email: $email", style: pw.TextStyle(font: regularFont, fontSize: 9)),
             ]
           ),
         ],
       ),
-      // pw.Divider(height: 1, borderStyle: pw.BorderStyle.dashed),
       pw.Divider(height: 2, thickness: 2),
     ]);
   }
 
-  /// Membangun Footer Standar dengan Nomor Halaman
-  static pw.Widget buildFooter(pw.Context context) {
+  static pw.Widget buildFooter(pw.Context context, pw.Font regularFont) {
     return pw.Container(
       alignment: pw.Alignment.centerRight,
       child: pw.Text(
         "Halaman ${context.pageNumber} dari ${context.pagesCount}",
-        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+        style: pw.TextStyle(font: regularFont, fontSize: 8, color: PdfColors.grey),
       ),
     );
   }
@@ -331,6 +330,126 @@ class PdfHelperService {
           cellStyle: pw.TextStyle(font: font, fontSize: 9),
         ),
       ],
+    );
+  }
+
+  // =======================================================================
+  // [FUNGSI BARU] UNTUK LAPORAN KEUANGAN SEKOLAH (BUKU BESAR)
+  // =======================================================================
+  static Future<List<pw.Widget>> buildLaporanKeuanganContent({
+    required String tahunAnggaran,
+    required Map<String, dynamic> summaryData,
+    required List<Map<String, dynamic>> daftarTransaksi,
+    required String filterInfo,
+  }) async {
+    final font = await PdfGoogleFonts.poppinsRegular();
+    final boldFont = await PdfGoogleFonts.poppinsBold();
+    final numberFormat = NumberFormat.decimalPattern('id_ID');
+
+    final List<pw.Widget> widgets = [];
+
+    // --- BAGIAN 1: RINGKASAN KEUANGAN ---
+    widgets.add(pw.Text("Ringkasan Keuangan Tahun Anggaran $tahunAnggaran", style: pw.TextStyle(font: boldFont, fontSize: 14)));
+    if (filterInfo.isNotEmpty) {
+      widgets.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 4, bottom: 8),
+        child: pw.Text("Filter Aktif: $filterInfo", style: pw.TextStyle(font: font, fontSize: 9, color: PdfColors.grey700)),
+      ));
+    }
+    
+    widgets.add(_buildFinancialKpiRow(
+      label1: "Total Pemasukan", value1: numberFormat.format(summaryData['totalPemasukan'] ?? 0), color1: PdfColors.green,
+      label2: "Total Pengeluaran", value2: numberFormat.format(summaryData['totalPengeluaran'] ?? 0), color2: PdfColors.red,
+      boldFont: boldFont, regularFont: font
+    ));
+    widgets.add(_buildFinancialKpiRow(
+      label1: "Saldo di Bank", value1: numberFormat.format(summaryData['saldoBank'] ?? 0), color1: PdfColors.orange,
+      label2: "Saldo Kas Tunai", value2: numberFormat.format(summaryData['saldoKasTunai'] ?? 0), color2: PdfColors.blue,
+      boldFont: boldFont, regularFont: font
+    ));
+    
+    widgets.add(pw.Divider(height: 24));
+
+    // --- BAGIAN 2: TABEL BUKU BESAR ---
+    widgets.add(pw.Text("Rincian Transaksi (Buku Besar)", style: pw.TextStyle(font: boldFont, fontSize: 12)));
+    widgets.add(pw.SizedBox(height: 8));
+    
+    widgets.add(pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey500),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(2), 1: const pw.FlexColumnWidth(4),
+        2: const pw.FlexColumnWidth(2.5), 3: const pw.FlexColumnWidth(2.5),
+        4: const pw.FlexColumnWidth(2.5),
+      },
+      children: [
+        // Header Row
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.blueGrey),
+          children: ['Tanggal', 'Keterangan', 'Kategori/Kas', 'Pemasukan', 'Pengeluaran'].map((header) {
+            return pw.Padding(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Text(header, style: pw.TextStyle(font: boldFont, fontSize: 9, color: PdfColors.white), textAlign: pw.TextAlign.center),
+            );
+          }).toList(),
+        ),
+        // Data Rows
+        ...daftarTransaksi.map((trx) {
+          final jenis = trx['jenis'] ?? '';
+          final jumlah = trx['jumlah'] ?? 0;
+          String kategoriKas = '';
+          if (jenis == 'Pemasukan' || jenis == 'Pengeluaran') {
+            kategoriKas = trx['kategori'] ?? 'N/A';
+          } else {
+            kategoriKas = "Transfer";
+          }
+          return pw.TableRow(
+            children: [
+              pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(DateFormat('dd/MM/yy HH:mm').format((trx['tanggal'] as Timestamp).toDate()), style: pw.TextStyle(font: font, fontSize: 8))),
+              pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(trx['keterangan'] ?? '', style: pw.TextStyle(font: font, fontSize: 8))),
+              pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(kategoriKas, style: pw.TextStyle(font: font, fontSize: 8))),
+              pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(jenis == 'Pemasukan' ? numberFormat.format(jumlah) : '', style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.right)),
+              pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(jenis == 'Pengeluaran' ? numberFormat.format(jumlah) : '', style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.right)),
+            ]
+          );
+        }),
+      ],
+    ));
+
+    return widgets;
+  }
+  
+  static pw.Widget _buildFinancialKpiRow({
+    required String label1, required String value1, required PdfColor color1,
+    required String label2, required String value2, required PdfColor color2,
+    required pw.Font boldFont, required pw.Font regularFont,
+  }) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(label1, style: pw.TextStyle(font: regularFont, fontSize: 9, color: color1)),
+                pw.SizedBox(height: 2),
+                pw.Text("Rp $value1", style: pw.TextStyle(font: boldFont, fontSize: 12)),
+              ]
+            )
+          ),
+          pw.SizedBox(width: 16),
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(label2, style: pw.TextStyle(font: regularFont, fontSize: 9, color: color2)),
+                pw.SizedBox(height: 2),
+                pw.Text("Rp $value2", style: pw.TextStyle(font: boldFont, fontSize: 12)),
+              ]
+            )
+          ),
+        ]
+      )
     );
   }
 }

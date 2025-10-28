@@ -25,6 +25,7 @@ import '../../../models/tagihan_model.dart';
 import '../../../models/transaksi_model.dart';
 import '../../../services/notifikasi_service.dart';
 import '../../../routes/app_pages.dart';
+import '../../../services/pdf_helper_service.dart';
 import '../../../widgets/number_input_formatter.dart';
 
 class DetailKeuanganSiswaController extends GetxController with GetTickerProviderStateMixin {
@@ -266,18 +267,22 @@ void showDetailTunggakan() {
           .collection('tahunajaran').doc(taLama).collection('keuangan_siswa').doc(uidSiswa);
       final tagihanPangkalRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
           .collection('keuangan_sekolah').doc('tagihan_uang_pangkal').collection('tagihan').doc(uidSiswa);
+      final tunggakanAwalRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+          .collection('tunggakanAwal').doc(uidSiswa);
 
       final results = await Future.wait([
         keuanganAktifRef.collection('tagihan').get(),
         keuanganAktifRef.collection('transaksi').orderBy('tanggalBayar', descending: true).get(),
         tagihanPangkalRef.get(),
         keuanganLamaRef.collection('tagihan').where('status', isNotEqualTo: 'Lunas').get(),
+        tunggakanAwalRef.get()
       ]);
 
       _prosesDataTagihan(
         results[0] as QuerySnapshot<Map<String, dynamic>>,
         results[2] as DocumentSnapshot<Map<String, dynamic>>,
-        results[3] as QuerySnapshot<Map<String, dynamic>>
+        results[3] as QuerySnapshot<Map<String, dynamic>>,
+        results[4] as DocumentSnapshot<Map<String, dynamic>>,
       );
       _prosesDataTransaksi(results[1] as QuerySnapshot<Map<String, dynamic>>);
       _buatTabDinamis();
@@ -285,6 +290,7 @@ void showDetailTunggakan() {
       
     } catch(e) {
       Get.snackbar("Error", "Gagal memuat data keuangan: ${e.toString()}");
+      print("### Error load data keuangan: $e");
     } finally {
       isLoading.value = false;
     }
@@ -316,13 +322,34 @@ void showDetailTunggakan() {
 
 
   void _prosesDataTagihan(
-      QuerySnapshot<Map<String, dynamic>> snapTahunan,
-      DocumentSnapshot<Map<String, dynamic>> snapPangkal,
-      QuerySnapshot<Map<String, dynamic>> snapTunggakanLama) {
+    QuerySnapshot<Map<String, dynamic>> snapTahunan,
+    DocumentSnapshot<Map<String, dynamic>> snapPangkal,
+    QuerySnapshot<Map<String, dynamic>> snapTunggakanLama,
+    // [MODIFIKASI 4] Tambahkan parameter baru
+    DocumentSnapshot<Map<String, dynamic>> snapTunggakanAwal) {
         
     tagihanSPP.clear();
     tagihanLainnya.clear();
     tagihanUangPangkal.value = null;
+
+    if (snapTunggakanAwal.exists && (snapTunggakanAwal.data()?['lunas'] ?? false) == false) {
+    final data = snapTunggakanAwal.data()!;
+    final sisa = (data['sisaTunggakan'] as num?)?.toInt() ?? 0;
+
+    if (sisa > 0) { // Hanya proses jika masih ada sisa
+      final tagihanAwal = TagihanModel(
+        id: "TUNGGAKAN-AWAL-${snapTunggakanAwal.id}",
+        deskripsi: data['keterangan'] ?? "Tunggakan awal sistem",
+        jenisPembayaran: "Tunggakan Lama", // Kelompokkan dengan tunggakan lain
+        jumlahTagihan: (data['totalTunggakan'] as num?)?.toInt() ?? 0,
+        jumlahTerbayar: ((data['totalTunggakan'] as num?)?.toInt() ?? 0) - sisa,
+        status: 'Jatuh Tempo',
+        isTunggakan: true,
+        metadata: {'sumber': 'tunggakanAwal'},
+      );
+      tagihanLainnya.add(tagihanAwal);
+    }
+  }
 
     for (var doc in snapTunggakanLama.docs) {
       final tagihan = TagihanModel.fromFirestore(doc);
@@ -428,9 +455,88 @@ void showDetailTunggakan() {
     );
   }
 
+  // Future<void> prosesPembayaranSpp() async {
+  //   isSaving.value = true;
+  //   Get.back();
+
+  //   TransaksiModel? newTransaksi;
+
+  //   try {
+  //     final taAktif = configC.tahunAjaranAktif.value;
+  //     final keuanganSiswaRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+  //         .collection('tahunajaran').doc(taAktif)
+  //         .collection('keuangan_siswa').doc(siswa.uid);
+
+  //     await _firestore.runTransaction((transaction) async {
+  //       final pencatatUid = configC.infoUser['uid'] ?? 'unknown';
+  //       final pencatatNama = getPencatatNama();
+
+  //       final List<DocumentSnapshot> tagihanDocsToUpdate = [];
+  //       for (var idTagihan in sppBulanTerpilih) {
+  //         final tagihanRef = keuanganSiswaRef.collection('tagihan').doc(idTagihan);
+  //         final tagihanDoc = await transaction.get(tagihanRef);
+  //         if (!tagihanDoc.exists) throw Exception("Tagihan $idTagihan tidak ditemukan!");
+  //         tagihanDocsToUpdate.add(tagihanDoc);
+  //       }
+
+  //       for (var tagihanDoc in tagihanDocsToUpdate) {
+  //         final tagihanData = tagihanDoc.data() as Map<String, dynamic>;
+  //         transaction.update(tagihanDoc.reference, {
+  //           'status': 'Lunas', 
+  //           'jumlahTerbayar': tagihanData['jumlahTagihan']
+  //         });
+  //       }
+
+  //       final deskripsiPertama = tagihanSPP.firstWhere((t) => t.id == sppBulanTerpilih.first).deskripsi;
+
+  //       final transaksiRef = keuanganSiswaRef.collection('transaksi').doc();
+  //       transaction.set(transaksiRef, {
+  //         'jumlahBayar': totalSppAkanDibayar.value,
+  //         'tanggalBayar': Timestamp.now(),
+  //         'metodePembayaran': "Tunai",
+  //         'keterangan': "Pembayaran ${sppBulanTerpilih.length} bulan SPP (mulai dari $deskripsiPertama)",
+  //         'idTagihanTerkait': sppBulanTerpilih.toList(),
+  //         'dicatatOlehUid': pencatatUid,
+  //         'dicatatOlehNama': pencatatNama,
+  //       });
+  //     });
+
+  //     final String formattedAmountSpp = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(totalSppAkanDibayar.value);
+  //     await NotifikasiService.kirimNotifikasi(
+  //       uidPenerima: siswa.uid,
+  //       judul: "Pembayaran SPP Diterima",
+  //       isi: "Pembayaran ${sppBulanTerpilih.length} bulan SPP sebesar $formattedAmountSpp telah berhasil kami catat. Terima kasih.",
+  //       tipe: 'keuangan',
+  //     );
+
+  //     newTransaksi = TransaksiModel(
+  //         id: 'temp_id', 
+  //         jumlahBayar: totalSppAkanDibayar.value,
+  //         tanggalBayar: DateTime.now(),
+  //         metodePembayaran: "Tunai",
+  //         keterangan: "Pembayaran ${sppBulanTerpilih.length} bulan SPP...",
+  //         dicatatOlehNama: getPencatatNama(), idTagihanTerkait: sppBulanTerpilih.toList()
+  //     );
+
+  //     sppBulanTerpilih.clear();
+  //     Get.snackbar("Berhasil", "Pembayaran SPP telah berhasil dicatat.", backgroundColor: Colors.green, colorText: Colors.white);
+  //     _loadDataKeuangan();
+
+  //   } catch (e) { 
+  //     Get.snackbar("Error", "Transaksi Gagal: ${e.toString()}", 
+  //     duration: const Duration(seconds: 5));
+  //   } finally { 
+  //     isSaving.value = false; 
+  //   }
+
+  //   if (newTransaksi != null) {
+  //     showPrinterChoiceDialog(newTransaksi);
+  //   }
+  // }
+
   Future<void> prosesPembayaranSpp() async {
     isSaving.value = true;
-    Get.back();
+    Get.back(); // Tutup dialog konfirmasi
 
     TransaksiModel? newTransaksi;
 
@@ -444,6 +550,7 @@ void showDetailTunggakan() {
         final pencatatUid = configC.infoUser['uid'] ?? 'unknown';
         final pencatatNama = getPencatatNama();
 
+        // --- Bagian 1: Logika Update Tagihan Siswa (Tidak berubah) ---
         final List<DocumentSnapshot> tagihanDocsToUpdate = [];
         for (var idTagihan in sppBulanTerpilih) {
           final tagihanRef = keuanganSiswaRef.collection('tagihan').doc(idTagihan);
@@ -455,15 +562,15 @@ void showDetailTunggakan() {
         for (var tagihanDoc in tagihanDocsToUpdate) {
           final tagihanData = tagihanDoc.data() as Map<String, dynamic>;
           transaction.update(tagihanDoc.reference, {
-            'status': 'Lunas', 
+            'status': 'Lunas',
             'jumlahTerbayar': tagihanData['jumlahTagihan']
           });
         }
 
+        // --- Bagian 2: Logika Pencatatan Transaksi Siswa (Tidak berubah) ---
         final deskripsiPertama = tagihanSPP.firstWhere((t) => t.id == sppBulanTerpilih.first).deskripsi;
-
-        final transaksiRef = keuanganSiswaRef.collection('transaksi').doc();
-        transaction.set(transaksiRef, {
+        final transaksiSiswaRef = keuanganSiswaRef.collection('transaksi').doc();
+        transaction.set(transaksiSiswaRef, {
           'jumlahBayar': totalSppAkanDibayar.value,
           'tanggalBayar': Timestamp.now(),
           'metodePembayaran': "Tunai",
@@ -472,8 +579,39 @@ void showDetailTunggakan() {
           'dicatatOlehUid': pencatatUid,
           'dicatatOlehNama': pencatatNama,
         });
+
+        // --- [MODIFIKASI LAPORAN KEUANGAN] Bagian 3: Pencatatan Ganda ke Buku Besar ---
+        final tahunAnggaran = DateTime.now().year.toString();
+        final summaryAnggaranRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+            .collection('tahunAnggaran').doc(tahunAnggaran);
+        final transaksiAnggaranRef = summaryAnggaranRef.collection('transaksi').doc();
+
+        final dataTransaksiAnggaran = {
+          'tanggal': Timestamp.now(),
+          'jenis': 'Pemasukan',
+          'sumberDana': 'Kas Tunai', // Asumsi SPP selalu tunai di fungsi ini
+          'jumlah': totalSppAkanDibayar.value,
+          'kategori': 'Pembayaran SPP',
+          'keterangan': "Pembayaran ${sppBulanTerpilih.length} bulan SPP dari ${siswa.namaLengkap}",
+          'noReferensi': "TRX-SPP-${transaksiSiswaRef.id.substring(0, 6)}",
+          'refIdDokumenSiswa': transaksiSiswaRef.id,
+          'diinputOleh': pencatatUid,
+          'diinputOlehNama': pencatatNama,
+          'idSiswa': siswa.uid,
+          'namaSiswa': siswa.namaLengkap,
+        };
+
+        transaction.set(transaksiAnggaranRef, dataTransaksiAnggaran);
+        transaction.set(summaryAnggaranRef, {
+          'tahun': int.parse(tahunAnggaran),
+          'totalPemasukan': FieldValue.increment(totalSppAkanDibayar.value),
+          'saldoAkhir': FieldValue.increment(totalSppAkanDibayar.value),
+          'saldoKasTunai': FieldValue.increment(totalSppAkanDibayar.value),
+          'lastUpdated': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       });
 
+      // --- Bagian 4: Notifikasi & Refresh UI (Tidak berubah) ---
       final String formattedAmountSpp = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(totalSppAkanDibayar.value);
       await NotifikasiService.kirimNotifikasi(
         uidPenerima: siswa.uid,
@@ -483,7 +621,7 @@ void showDetailTunggakan() {
       );
 
       newTransaksi = TransaksiModel(
-          id: 'temp_id', 
+          id: 'temp_id',
           jumlahBayar: totalSppAkanDibayar.value,
           tanggalBayar: DateTime.now(),
           metodePembayaran: "Tunai",
@@ -495,11 +633,12 @@ void showDetailTunggakan() {
       Get.snackbar("Berhasil", "Pembayaran SPP telah berhasil dicatat.", backgroundColor: Colors.green, colorText: Colors.white);
       _loadDataKeuangan();
 
-    } catch (e) { 
-      Get.snackbar("Error", "Transaksi Gagal: ${e.toString()}", 
+    } catch (e) {
+      Get.snackbar("Error", "Transaksi Gagal: ${e.toString()}",
       duration: const Duration(seconds: 5));
-    } finally { 
-      isSaving.value = false; 
+      print("### Error during prosesPembayaranSPP: $e");
+    } finally {
+      isSaving.value = false;
     }
 
     if (newTransaksi != null) {
@@ -546,44 +685,159 @@ void showDetailTunggakan() {
     );
   }
 
+  // Future<void> prosesPembayaranUmum(TagihanModel tagihan) async {
+  //   isSaving.value = true;
+  //   int jumlahBayar = int.tryParse(jumlahBayarC.text) ?? 0;
+  //   if (jumlahBayar <= 0) {
+  //     Get.snackbar("Peringatan", "Jumlah bayar tidak valid.");
+  //     isSaving.value = false; return;
+  //   }
+
+  //   TransaksiModel? newTransaksi;
+
+  //   try {
+  //     DocumentReference tagihanRef;
+  //     CollectionReference transaksiRef;
+  //     final bool isUangPangkal = tagihan.jenisPembayaran == 'Uang Pangkal';
+
+  //     if (isUangPangkal) {
+  //       tagihanRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('keuangan_sekolah').doc('tagihan_uang_pangkal').collection('tagihan').doc(siswa.uid);
+  //     } else {
+  //       tagihanRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('tahunajaran').doc(configC.tahunAjaranAktif.value).collection('keuangan_siswa').doc(siswa.uid).collection('tagihan').doc(tagihan.id);
+  //     }
+  //     transaksiRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('tahunajaran').doc(configC.tahunAjaranAktif.value).collection('keuangan_siswa').doc(siswa.uid).collection('transaksi');
+
+  //     await _firestore.runTransaction((transaction) async {
+  //       final tagihanDoc = await transaction.get(tagihanRef);
+  //       if (!tagihanDoc.exists) throw Exception("Tagihan tidak ditemukan!");
+  //       final tagihanData = tagihanDoc.data() as Map<String, dynamic>;
+  //       final jumlahTerbayarLama = (tagihanData['jumlahTerbayar'] as num?)?.toInt() ?? 0;
+  //       final jumlahTagihan = (tagihanData['totalTagihan'] ?? tagihanData['jumlahTagihan']) as int;
+  //       final jumlahTerbayarBaru = jumlahTerbayarLama + jumlahBayar;
+  //       final statusBaru = jumlahTerbayarBaru >= jumlahTagihan ? 'Lunas' : 'Belum Lunas';
+  //       transaction.update(tagihanRef, {'jumlahTerbayar': jumlahTerbayarBaru, 'status': statusBaru});
+  //       if (isUangPangkal) {
+  //         final siswaRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('siswa').doc(siswa.uid);
+  //         transaction.set(siswaRef, {'uangPangkal': {'jumlahTerbayar': jumlahTerbayarBaru, 'status': statusBaru}}, SetOptions(merge: true));
+  //       }
+  //       final pencatatUid = configC.infoUser['uid'] ?? 'unknown';
+  //       final pencatatNama = getPencatatNama();
+  //       transaction.set(transaksiRef.doc(), {
+  //         'jumlahBayar': jumlahBayar,
+  //         'tanggalBayar': Timestamp.now(),
+  //         'metodePembayaran': metodePembayaran.value,
+  //         'keterangan': "Pembayaran untuk ${tagihan.deskripsi}. ${keteranganC.text.trim()}",
+  //         'idTagihanTerkait': [tagihan.id],
+  //         'dicatatOlehUid': pencatatUid,
+  //         'dicatatOlehNama': pencatatNama,
+  //       });
+
+  //     });
+
+  //     Get.back();
+
+  //     final String formattedAmount = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(jumlahBayar);
+  //     await NotifikasiService.kirimNotifikasi(
+  //       uidPenerima: siswa.uid,
+  //       judul: "Pembayaran Diterima",
+  //       isi: "Pembayaran sebesar $formattedAmount untuk ${tagihan.deskripsi} telah berhasil kami catat.",
+  //       tipe: 'keuangan',
+  //     );
+
+  //     newTransaksi = TransaksiModel(
+  //       id: 'temp_id',
+  //       jumlahBayar: int.tryParse(jumlahBayarC.text) ?? 0,
+  //       tanggalBayar: DateTime.now(),
+  //       metodePembayaran: metodePembayaran.value,
+  //       keterangan: "Pembayaran untuk ${tagihan.deskripsi}. ${keteranganC.text.trim()}",
+  //       dicatatOlehNama: getPencatatNama(), idTagihanTerkait: [tagihan.id]
+  //     );
+
+  //     Get.back(); 
+
+  //     Get.snackbar("Berhasil", "Pembayaran telah berhasil dicatat.", backgroundColor: Colors.green, colorText: Colors.white);
+  //     _loadDataKeuangan();
+  //   } catch (e) { Get.snackbar("Error", "Transaksi Gagal: ${e.toString()}");
+  //   } finally { isSaving.value = false; }
+
+  //   if (newTransaksi != null) {
+  //     showPrinterChoiceDialog(newTransaksi);
+  //   }
+  // }
+
   Future<void> prosesPembayaranUmum(TagihanModel tagihan) async {
     isSaving.value = true;
-    int jumlahBayar = int.tryParse(jumlahBayarC.text) ?? 0;
+    int jumlahBayar = int.tryParse(jumlahBayarC.text.replaceAll('.', '')) ?? 0;
     if (jumlahBayar <= 0) {
       Get.snackbar("Peringatan", "Jumlah bayar tidak valid.");
-      isSaving.value = false; return;
+      isSaving.value = false;
+      return;
     }
 
     TransaksiModel? newTransaksi;
 
     try {
+      // [MODIFIKASI KUNCI] Variabel referensi dideklarasikan di sini
       DocumentReference tagihanRef;
-      CollectionReference transaksiRef;
       final bool isUangPangkal = tagihan.jenisPembayaran == 'Uang Pangkal';
+      final bool isTunggakanAwal = tagihan.id.startsWith("TUNGGAKAN-AWAL-");
 
-      if (isUangPangkal) {
-        tagihanRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('keuangan_sekolah').doc('tagihan_uang_pangkal').collection('tagihan').doc(siswa.uid);
-      } else {
-        tagihanRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('tahunajaran').doc(configC.tahunAjaranAktif.value).collection('keuangan_siswa').doc(siswa.uid).collection('tagihan').doc(tagihan.id);
-      }
-      transaksiRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('tahunajaran').doc(configC.tahunAjaranAktif.value).collection('keuangan_siswa').doc(siswa.uid).collection('transaksi');
+      // Path ke koleksi transaksi siswa tetap sama
+      final transaksiSiswaRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+          .collection('tahunajaran').doc(configC.tahunAjaranAktif.value)
+          .collection('keuangan_siswa').doc(siswa.uid)
+          .collection('transaksi');
 
       await _firestore.runTransaction((transaction) async {
+        // --- Bagian 1: Logika Update Tagihan Siswa ---
+        if (isUangPangkal) {
+          tagihanRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+              .collection('keuangan_sekolah').doc('tagihan_uang_pangkal')
+              .collection('tagihan').doc(siswa.uid);
+        } else if (isTunggakanAwal) {
+          // [MODIFIKASI KUNCI] Logika baru untuk menangani Tunggakan Awal
+          tagihanRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+              .collection('tunggakanAwal').doc(siswa.uid);
+        } else {
+          tagihanRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+              .collection('tahunajaran').doc(configC.tahunAjaranAktif.value)
+              .collection('keuangan_siswa').doc(siswa.uid)
+              .collection('tagihan').doc(tagihan.id);
+        }
+
         final tagihanDoc = await transaction.get(tagihanRef);
         if (!tagihanDoc.exists) throw Exception("Tagihan tidak ditemukan!");
+
         final tagihanData = tagihanDoc.data() as Map<String, dynamic>;
-        final jumlahTerbayarLama = (tagihanData['jumlahTerbayar'] as num?)?.toInt() ?? 0;
-        final jumlahTagihan = (tagihanData['totalTagihan'] ?? tagihanData['jumlahTagihan']) as int;
-        final jumlahTerbayarBaru = jumlahTerbayarLama + jumlahBayar;
-        final statusBaru = jumlahTerbayarBaru >= jumlahTagihan ? 'Lunas' : 'Belum Lunas';
-        transaction.update(tagihanRef, {'jumlahTerbayar': jumlahTerbayarBaru, 'status': statusBaru});
-        if (isUangPangkal) {
-          final siswaRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('siswa').doc(siswa.uid);
-          transaction.set(siswaRef, {'uangPangkal': {'jumlahTerbayar': jumlahTerbayarBaru, 'status': statusBaru}}, SetOptions(merge: true));
+
+        if (isTunggakanAwal) {
+          // [MODIFIKASI KUNCI] Logika update spesifik untuk koleksi tunggakanAwal
+          final sisaLama = (tagihanData['sisaTunggakan'] as num?)?.toInt() ?? 0;
+          final sisaBaru = sisaLama - jumlahBayar;
+          transaction.update(tagihanRef, {
+            'sisaTunggakan': sisaBaru,
+            'lunas': sisaBaru <= 0,
+          });
+        } else {
+          // Logika update untuk tagihan reguler dan uang pangkal (tidak berubah)
+          final jumlahTerbayarLama = (tagihanData['jumlahTerbayar'] as num?)?.toInt() ?? 0;
+          final jumlahTagihan = (tagihanData['totalTagihan'] ?? tagihanData['jumlahTagihan']) as int;
+          final jumlahTerbayarBaru = jumlahTerbayarLama + jumlahBayar;
+          final statusBaru = jumlahTerbayarBaru >= jumlahTagihan ? 'Lunas' : 'Belum Lunas';
+          transaction.update(tagihanRef, {'jumlahTerbayar': jumlahTerbayarBaru, 'status': statusBaru});
+
+          if (isUangPangkal) {
+            final siswaRef = _firestore.collection('Sekolah').doc(configC.idSekolah).collection('siswa').doc(siswa.uid);
+            transaction.set(siswaRef, {'uangPangkal': {'jumlahTerbayar': jumlahTerbayarBaru, 'status': statusBaru}}, SetOptions(merge: true));
+          }
         }
+
+        // --- Bagian 2: Logika Pencatatan Transaksi Siswa (Tidak berubah) ---
         final pencatatUid = configC.infoUser['uid'] ?? 'unknown';
         final pencatatNama = getPencatatNama();
-        transaction.set(transaksiRef.doc(), {
+        final newTransaksiSiswaRef = transaksiSiswaRef.doc(); // Buat referensi doc baru
+
+        transaction.set(newTransaksiSiswaRef, {
           'jumlahBayar': jumlahBayar,
           'tanggalBayar': Timestamp.now(),
           'metodePembayaran': metodePembayaran.value,
@@ -592,10 +846,41 @@ void showDetailTunggakan() {
           'dicatatOlehUid': pencatatUid,
           'dicatatOlehNama': pencatatNama,
         });
+
+        // --- [MODIFIKASI LAPORAN KEUANGAN] Bagian 3: Pencatatan Ganda ke Buku Besar ---
+        final tahunAnggaran = DateTime.now().year.toString();
+        final summaryAnggaranRef = _firestore.collection('Sekolah').doc(configC.idSekolah)
+            .collection('tahunAnggaran').doc(tahunAnggaran);
+        final transaksiAnggaranRef = summaryAnggaranRef.collection('transaksi').doc();
+
+        final dataTransaksiAnggaran = {
+          'tanggal': Timestamp.now(),
+          'jenis': 'Pemasukan',
+          'sumberDana': metodePembayaran.value == "Tunai" ? 'Kas Tunai' : 'Bank',
+          'jumlah': jumlahBayar,
+          'kategori': 'Pembayaran ${tagihan.jenisPembayaran}',
+          'keterangan': "Pembayaran dari ${siswa.namaLengkap} untuk ${tagihan.deskripsi}",
+          'noReferensi': "TRX-${newTransaksiSiswaRef.id.substring(0, 8)}",
+          'refIdDokumenSiswa': newTransaksiSiswaRef.id,
+          'diinputOleh': pencatatUid,
+          'diinputOlehNama': pencatatNama,
+          'idSiswa': siswa.uid,
+          'namaSiswa': siswa.namaLengkap,
+        };
+
+        transaction.set(transaksiAnggaranRef, dataTransaksiAnggaran);
+        transaction.set(summaryAnggaranRef, {
+          'tahun': int.parse(tahunAnggaran),
+          'totalPemasukan': FieldValue.increment(jumlahBayar),
+          'saldoAkhir': FieldValue.increment(jumlahBayar),
+          (metodePembayaran.value == "Tunai" ? 'saldoKasTunai' : 'saldoBank'): FieldValue.increment(jumlahBayar),
+          'lastUpdated': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       });
 
-      Get.back();
+      Get.back(); // Tutup dialog pembayaran
 
+      // --- Bagian 4: Notifikasi & Refresh UI (Tidak berubah) ---
       final String formattedAmount = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(jumlahBayar);
       await NotifikasiService.kirimNotifikasi(
         uidPenerima: siswa.uid,
@@ -606,19 +891,22 @@ void showDetailTunggakan() {
 
       newTransaksi = TransaksiModel(
         id: 'temp_id',
-        jumlahBayar: int.tryParse(jumlahBayarC.text) ?? 0,
+        jumlahBayar: jumlahBayar,
         tanggalBayar: DateTime.now(),
         metodePembayaran: metodePembayaran.value,
         keterangan: "Pembayaran untuk ${tagihan.deskripsi}. ${keteranganC.text.trim()}",
-        dicatatOlehNama: getPencatatNama(), idTagihanTerkait: [tagihan.id]
+        dicatatOlehNama: getPencatatNama(),
+        idTagihanTerkait: [tagihan.id]
       );
-
-      Get.back(); 
 
       Get.snackbar("Berhasil", "Pembayaran telah berhasil dicatat.", backgroundColor: Colors.green, colorText: Colors.white);
       _loadDataKeuangan();
-    } catch (e) { Get.snackbar("Error", "Transaksi Gagal: ${e.toString()}");
-    } finally { isSaving.value = false; }
+    } catch (e) {
+      Get.snackbar("Error", "Transaksi Gagal: ${e.toString()}");
+      print("Error during prosesPembayaranUmum: $e");
+    } finally {
+      isSaving.value = false;
+    }
 
     if (newTransaksi != null) {
       showPrinterChoiceDialog(newTransaksi);
@@ -818,159 +1106,291 @@ void showDetailTunggakan() {
     }
     isProcessingPdf.value = true;
     try {
-      final pdf = pw.Document();
-      final font = await PdfGoogleFonts.poppinsRegular();
+      // --- LANGKAH 1: PERSIAPAN ASET & DATA (STANDARISASI) ---
+      final infoSekolah = await _firestore.collection('Sekolah').doc(configC.idSekolah).get().then((d) {
+        final data = d.data();
+        if (data == null) return <String, dynamic>{};
+        return Map<String, dynamic>.from(data);
+      });
+      final logoBytes = await rootBundle.load('assets/png/logo.png');
+      final logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
       final boldFont = await PdfGoogleFonts.poppinsBold();
-      final logoImage = pw.MemoryImage((await rootBundle.load('assets/png/logo.png')).buffer.asUint8List());
+      final regularFont = await PdfGoogleFonts.poppinsRegular();
+      final italicFont = await PdfGoogleFonts.poppinsItalic();
+      final numberFormat = NumberFormat.decimalPattern('id_ID');
   
-      final semuaTagihan = [...tagihanSPP, ...tagihanLainnya];
+      // --- LANGKAH 2: PENGUMPULAN DATA (TIDAK BERUBAH) ---
+      
+      final List<TagihanModel> tagihanUntukPdf = [];
+      final now = DateTime.now();
+
+      final List<TagihanModel> semuaTagihanMentah = [...tagihanSPP, ...tagihanLainnya];
       if (tagihanUangPangkal.value != null) {
-        semuaTagihan.add(tagihanUangPangkal.value!);
+        semuaTagihanMentah.add(tagihanUangPangkal.value!);
       }
-      semuaTagihan.sort((a,b) {
-        if(a.status != 'Lunas' && b.status == 'Lunas') return -1;
-        if(a.status == 'Lunas' && b.status != 'Lunas') return 1;
+      // Terapkan logika filter
+        for (var tagihan in semuaTagihanMentah) {
+          if (tagihan.jenisPembayaran == 'SPP') {
+            // Untuk SPP: hanya masukkan jika sudah lunas ATAU sudah jatuh tempo
+            if (tagihan.status == 'Lunas' || (tagihan.tanggalJatuhTempo != null && tagihan.tanggalJatuhTempo!.toDate().isBefore(now))) {
+              tagihanUntukPdf.add(tagihan);
+            }
+          } else {
+            // Untuk semua jenis tagihan lain, masukkan semuanya
+            tagihanUntukPdf.add(tagihan);
+          }
+        }
+      tagihanUntukPdf.sort((a, b) {
+        if (a.status != 'Lunas' && b.status == 'Lunas') return -1;
+        if (a.status == 'Lunas' && b.status != 'Lunas') return 1;
         final tglA = a.tanggalJatuhTempo?.toDate() ?? DateTime.now();
         final tglB = b.tanggalJatuhTempo?.toDate() ?? DateTime.now();
         return tglA.compareTo(tglB);
       });
   
+      // --- LANGKAH 3: RAKIT DOKUMEN PDF ---
+      final pdf = pw.Document();
+      
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          header: (context) => _buildPdfHeader(logoImage, boldFont),
-          build: (context) => [
-            _buildPdfRingkasan(boldFont, font),
-            _buildPdfTabelTagihan(semuaTagihan, font, boldFont),
-            if (riwayatTransaksi.isNotEmpty) ...[
-              pw.SizedBox(height: 20),
-              _buildPdfTabelTransaksi(font, boldFont),
-            ],
-          ],
+          // [STANDARISASI] Gunakan Header dan Footer dari Service
+          header: (context) => PdfHelperService.buildHeaderA4(
+            infoSekolah: infoSekolah,
+            logoImage: logoImage,
+            boldFont: boldFont,
+            regularFont: regularFont,
+          ),
+          footer: (context) => PdfHelperService.buildFooter(context, regularFont),
+          build: (context) {
+            // --- KONTEN DIBANGUN DI SINI ---
+            
+            // Bagian Ringkasan
+            final ringkasan = pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 20),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text("Laporan Keuangan Siswa", style: pw.TextStyle(font: boldFont, fontSize: 14)),
+                  pw.Divider(height: 5, thickness: 0.5),
+                  pw.SizedBox(height: 10),
+                  pw.Row(children: [
+                    pw.SizedBox(width: 100, child: pw.Text("Nama Lengkap", style: pw.TextStyle(font: regularFont))),
+                    pw.Text(": ${siswa.namaLengkap}", style: pw.TextStyle(font: boldFont)),
+                  ]),
+                  pw.Row(children: [
+                    pw.SizedBox(width: 100, child: pw.Text("Kelas", style: pw.TextStyle(font: regularFont))),
+                    pw.Text(": ${siswa.kelasId?.split('-').first ?? 'N/A'}", style: pw.TextStyle(font: boldFont)),
+                  ]),
+                  pw.SizedBox(height: 10),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.red)),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text("Total Tunggakan Saat Ini", style: pw.TextStyle(font: boldFont, color: PdfColors.red)),
+                        pw.Text(
+                          "Rp ${numberFormat.format(totalTunggakan.value)}",
+                          style: pw.TextStyle(font: boldFont, color: PdfColors.red),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              )
+            );
+  
+            // [PERBAIKAN] Bagian Tabel Tagihan (menggunakan pw.Table manual)
+            final tabelTagihan = pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey500),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(4), 1: pw.FlexColumnWidth(2),
+                2: pw.FlexColumnWidth(2), 3: pw.FlexColumnWidth(1.5),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                  children: ['Keterangan', 'Jumlah Tagihan', 'Sisa Tagihan', 'Status'].map((h) => 
+                    pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(h, style: pw.TextStyle(font: boldFont, fontSize: 9), textAlign: pw.TextAlign.center))
+                  ).toList(),
+                ),
+                ...tagihanUntukPdf.map((trx) => pw.TableRow(
+                  children: [
+                    pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(trx.deskripsi, style: pw.TextStyle(font: regularFont, fontSize: 8))),
+                    pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(numberFormat.format(trx.jumlahTagihan), style: pw.TextStyle(font: regularFont, fontSize: 8), textAlign: pw.TextAlign.right)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(numberFormat.format(trx.sisaTagihan), style: pw.TextStyle(font: regularFont, fontSize: 8), textAlign: pw.TextAlign.right)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(trx.status, style: pw.TextStyle(font: regularFont, fontSize: 8), textAlign: pw.TextAlign.center)),
+                  ]
+                ))
+              ],
+            );
+            
+            // [PERBAIKAN] Bagian Tabel Riwayat Transaksi (menggunakan pw.Table manual)
+            pw.Widget tabelTransaksi = pw.SizedBox.shrink();
+            if (riwayatTransaksi.isNotEmpty) {
+              tabelTransaksi = pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.SizedBox(height: 20),
+                  pw.Text("Riwayat Pembayaran", style: pw.TextStyle(font: boldFont, fontSize: 12)),
+                  pw.SizedBox(height: 8),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey500),
+                    columnWidths: const { 0: pw.FlexColumnWidth(2), 1: pw.FlexColumnWidth(5), 2: pw.FlexColumnWidth(2.5), 3: pw.FlexColumnWidth(2), },
+                    children: [
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                        children: ['Tanggal', 'Keterangan Transaksi', 'Jumlah Bayar', 'Pencatat'].map((h) => 
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(h, style: pw.TextStyle(font: boldFont, fontSize: 9), textAlign: pw.TextAlign.center))
+                        ).toList(),
+                      ),
+                      ...riwayatTransaksi.map((trx) => pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(DateFormat('dd/MM/yy HH:mm').format(trx.tanggalBayar), style: pw.TextStyle(font: regularFont, fontSize: 8))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(trx.keterangan, style: pw.TextStyle(font: regularFont, fontSize: 8))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(numberFormat.format(trx.jumlahBayar), style: pw.TextStyle(font: regularFont, fontSize: 8), textAlign: pw.TextAlign.right)),
+                          pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(trx.dicatatOlehNama, style: pw.TextStyle(font: regularFont, fontSize: 8), textAlign: pw.TextAlign.center)),
+                        ]
+                      ))
+                    ],
+                  ),
+                ]
+              );
+            }
+  
+            return [
+              ringkasan,
+              tabelTagihan,
+              tabelTransaksi,
+            ];
+          },
         ),
       );
   
+      // --- LANGKAH 4: SIMPAN & BAGIKAN (TIDAK BERUBAH) ---
       final String fileName = 'laporan_keuangan_${siswa.namaLengkap.replaceAll(' ', '_')}.pdf';
       await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
   
     } catch (e) {
       Get.snackbar("Error", "Gagal membuat file PDF: ${e.toString()}");
+      print("### PDF Siswa Export Error: $e"); // Tambahkan log untuk debug
     } finally {
       isProcessingPdf.value = false;
     }
   }
 
-  pw.Widget _buildPdfHeader(pw.MemoryImage logo, pw.Font boldFont) {
-    return pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Row(children: [
-            pw.Image(logo, width: 40, height: 40),
-            pw.SizedBox(width: 10),
-            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              pw.Text("Laporan Keuangan Siswa", style: pw.TextStyle(font: boldFont, fontSize: 14)),
-              pw.Text("MI Al-Huda Yogyakarta", style: const pw.TextStyle(fontSize: 12)),
-            ]),
-          ]),
-          pw.Text("T.A: ${configC.tahunAjaranAktif.value}", style: const pw.TextStyle(fontSize: 10)),
-        ],
-      );
-  }
+  // pw.Widget _buildPdfHeader(pw.MemoryImage logo, pw.Font boldFont) {
+  //   return pw.Row(
+  //       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+  //       children: [
+  //         pw.Row(children: [
+  //           pw.Image(logo, width: 40, height: 40),
+  //           pw.SizedBox(width: 10),
+  //           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+  //             pw.Text("Laporan Keuangan Siswa", style: pw.TextStyle(font: boldFont, fontSize: 14)),
+  //             pw.Text("MI Al-Huda Yogyakarta", style: const pw.TextStyle(fontSize: 12)),
+  //           ]),
+  //         ]),
+  //         pw.Text("T.A: ${configC.tahunAjaranAktif.value}", style: const pw.TextStyle(fontSize: 10)),
+  //       ],
+  //     );
+  // }
 
-  pw.Widget _buildPdfRingkasan(pw.Font boldFont, pw.Font font) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 20),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text("Detail Siswa", style: pw.TextStyle(font: boldFont)),
-          pw.Divider(height: 5),
-          pw.SizedBox(height: 5),
-          pw.Row(children: [
-            pw.SizedBox(width: 100, child: pw.Text("Nama Lengkap", style: pw.TextStyle(font: font))),
-            pw.Text(": ${siswa.namaLengkap}", style: pw.TextStyle(font: boldFont)),
-          ]),
-          pw.Row(children: [
-            pw.SizedBox(width: 100, child: pw.Text("Kelas", style: pw.TextStyle(font: font))),
-            pw.Text(": ${siswa.kelasId ?? 'N/A'}", style: pw.TextStyle(font: boldFont)),
-          ]),
-          pw.SizedBox(height: 10),
-          pw.Container(
-            padding: const pw.EdgeInsets.all(8),
-            decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.red)),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text("Total Tunggakan Saat Ini", style: pw.TextStyle(font: boldFont, color: PdfColors.red)),
-                pw.Text(
-                  NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(totalTunggakan.value),
-                  style: pw.TextStyle(font: boldFont, color: PdfColors.red),
-                ),
-              ],
-            ),
-          )
-        ],
-      )
-    );
-  }
+  // pw.Widget _buildPdfRingkasan(pw.Font boldFont, pw.Font font) {
+  //   return pw.Padding(
+  //     padding: const pw.EdgeInsets.symmetric(vertical: 20),
+  //     child: pw.Column(
+  //       crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //       children: [
+  //         pw.Text("Detail Siswa", style: pw.TextStyle(font: boldFont)),
+  //         pw.Divider(height: 5),
+  //         pw.SizedBox(height: 5),
+  //         pw.Row(children: [
+  //           pw.SizedBox(width: 100, child: pw.Text("Nama Lengkap", style: pw.TextStyle(font: font))),
+  //           pw.Text(": ${siswa.namaLengkap}", style: pw.TextStyle(font: boldFont)),
+  //         ]),
+  //         pw.Row(children: [
+  //           pw.SizedBox(width: 100, child: pw.Text("Kelas", style: pw.TextStyle(font: font))),
+  //           pw.Text(": ${siswa.kelasId ?? 'N/A'}", style: pw.TextStyle(font: boldFont)),
+  //         ]),
+  //         pw.SizedBox(height: 10),
+  //         pw.Container(
+  //           padding: const pw.EdgeInsets.all(8),
+  //           decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.red)),
+  //           child: pw.Row(
+  //             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+  //             children: [
+  //               pw.Text("Total Tunggakan Saat Ini", style: pw.TextStyle(font: boldFont, color: PdfColors.red)),
+  //               pw.Text(
+  //                 NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(totalTunggakan.value),
+  //                 style: pw.TextStyle(font: boldFont, color: PdfColors.red),
+  //               ),
+  //             ],
+  //           ),
+  //         )
+  //       ],
+  //     )
+  //   );
+  // }
 
-  pw.Widget _buildPdfTabelTagihan(List<TagihanModel> semuaTagihan, pw.Font font, pw.Font boldFont) {
-    final headers = ['Keterangan', 'Jumlah Tagihan', 'Sisa Tagihan', 'Status'];
-    final data = semuaTagihan.map((trx) => [
-      trx.deskripsi,
-      NumberFormat.decimalPattern('id_ID').format(trx.jumlahTagihan),
-      NumberFormat.decimalPattern('id_ID').format(trx.sisaTagihan),
-      trx.status,
-    ]).toList();
+  // pw.Widget _buildPdfTabelTagihan(List<TagihanModel> semuaTagihan, pw.Font font, pw.Font boldFont) {
+  //   final headers = ['Keterangan', 'Jumlah Tagihan', 'Sisa Tagihan', 'Status'];
+  //   final data = semuaTagihan.map((trx) => [
+  //     trx.deskripsi,
+  //     NumberFormat.decimalPattern('id_ID').format(trx.jumlahTagihan),
+  //     NumberFormat.decimalPattern('id_ID').format(trx.sisaTagihan),
+  //     trx.status,
+  //   ]).toList();
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text("Rincian Semua Tagihan", style: pw.TextStyle(font: boldFont, fontSize: 12)),
-        pw.SizedBox(height: 8),
-        pw.Table.fromTextArray(
-          headers: headers,
-          data: data,
-          headerStyle: pw.TextStyle(font: boldFont, fontSize: 9),
-          cellStyle: pw.TextStyle(font: font, fontSize: 9),
-          cellAlignments: {
-            1: pw.Alignment.centerRight,
-            2: pw.Alignment.centerRight,
-            3: pw.Alignment.center,
-          },
-        ),
-      ]
-    );
-  }
+  //   return pw.Column(
+  //     crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //     children: [
+  //       pw.Text("Rincian Semua Tagihan", style: pw.TextStyle(font: boldFont, fontSize: 12)),
+  //       pw.SizedBox(height: 8),
+  //       pw.Table.fromTextArray(
+  //         headers: headers,
+  //         data: data,
+  //         headerStyle: pw.TextStyle(font: boldFont, fontSize: 9),
+  //         cellStyle: pw.TextStyle(font: font, fontSize: 9),
+  //         cellAlignments: {
+  //           1: pw.Alignment.centerRight,
+  //           2: pw.Alignment.centerRight,
+  //           3: pw.Alignment.center,
+  //         },
+  //       ),
+  //     ]
+  //   );
+  // }
   
-  pw.Widget _buildPdfTabelTransaksi(pw.Font font, pw.Font boldFont) {
-    final headers = ['Tanggal', 'Keterangan Transaksi', 'Jumlah Bayar', 'Pencatat'];
-    final data = riwayatTransaksi.map((trx) => [
-      DateFormat('dd/MM/yy HH:mm').format(trx.tanggalBayar),
-      trx.keterangan,
-      NumberFormat.decimalPattern('id_ID').format(trx.jumlahBayar),
-      trx.dicatatOlehNama,
-    ]).toList();
+  // pw.Widget _buildPdfTabelTransaksi(pw.Font font, pw.Font boldFont) {
+  //   final headers = ['Tanggal', 'Keterangan Transaksi', 'Jumlah Bayar', 'Pencatat'];
+  //   final data = riwayatTransaksi.map((trx) => [
+  //     DateFormat('dd/MM/yy HH:mm').format(trx.tanggalBayar),
+  //     trx.keterangan,
+  //     NumberFormat.decimalPattern('id_ID').format(trx.jumlahBayar),
+  //     trx.dicatatOlehNama,
+  //   ]).toList();
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text("Riwayat Pembayaran", style: pw.TextStyle(font: boldFont, fontSize: 12)),
-        pw.SizedBox(height: 8),
-        pw.Table.fromTextArray(
-          headers: headers,
-          data: data,
-          headerStyle: pw.TextStyle(font: boldFont, fontSize: 9),
-          cellStyle: pw.TextStyle(font: font, fontSize: 9),
-          cellAlignments: {
-            0: pw.Alignment.center,
-            2: pw.Alignment.centerRight,
-            3: pw.Alignment.center,
-          },
-        ),
-      ],
-    );
-  }
+  //   return pw.Column(
+  //     crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //     children: [
+  //       pw.Text("Riwayat Pembayaran", style: pw.TextStyle(font: boldFont, fontSize: 12)),
+  //       pw.SizedBox(height: 8),
+  //       pw.Table.fromTextArray(
+  //         headers: headers,
+  //         data: data,
+  //         headerStyle: pw.TextStyle(font: boldFont, fontSize: 9),
+  //         cellStyle: pw.TextStyle(font: font, fontSize: 9),
+  //         cellAlignments: {
+  //           0: pw.Alignment.center,
+  //           2: pw.Alignment.centerRight,
+  //           3: pw.Alignment.center,
+  //         },
+  //       ),
+  //     ],
+  //   );
+  // }
 
   void showPrinterChoiceDialog(TransaksiModel trx) {
     Get.defaultDialog(

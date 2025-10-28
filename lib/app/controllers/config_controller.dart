@@ -189,48 +189,95 @@ class ConfigController extends GetxController {
     }
   }
   
+  // Future<bool> _syncProfileWithFirestore(String uid) async {
+  //   print("👤 [ConfigController] _syncProfileWithFirestore started for $uid.");
+  //   try {
+  //     final userDoc = await _firestore.collection('Sekolah').doc(idSekolah).collection('pegawai').doc(uid).get();
+  //     if (userDoc.exists && userDoc.data() != null) {
+  //       final Map<String, dynamic> firestoreData = userDoc.data()!;
+        
+  //       infoUser.value = firestoreData;
+  //       print("👤 [ConfigController] User profile loaded from Firestore: ${infoUser['nama']}.");
+  
+  //       // Buat salinan data untuk cache, lalu iterasi untuk konversi Timestamp
+  //       final Map<String, dynamic> dataForCache = Map<String, dynamic>.from(firestoreData);
+        
+  //       dataForCache.forEach((key, value) {
+  //         if (value is Timestamp) {
+  //           // Konversi SETIAP Timestamp yang ditemukan menjadi String ISO8601
+  //           dataForCache[key] = value.toDate().toIso8601String();
+  //         }
+  //       });
+        
+  //       await _box.write('userProfile', dataForCache);
+  //       print("💾 [ConfigController] User profile cached.");
+  
+  //       // TAMBAHAN BARU: SIMPAN ID SEKOLAH DI KOLEKSI USERS
+  //       // Ini penting untuk aturan keamanan yang baru
+  //       final userRef = _firestore.collection('users').doc(uid);
+  //       await userRef.set({ 'idSekolah': idSekolah }, SetOptions(merge: true));
+  //       print("🌐 [ConfigController] User's school ID synced for security rules.");
+  
+  //       return true;
+  //     } else {
+  //       print("🛑 [ConfigController] Profile for $uid not found in Firestore. Logging out.");
+  //       Get.snackbar("Profil Tidak Ditemukan", "Profil pengguna tidak ditemukan di database. Silakan hubungi administrator.", 
+  //                    snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red, colorText: Colors.white);
+  //       await _authController.logout(); // Memaksa logout
+  //       return false;
+  //     }
+  //   } catch (e) {
+  //     print("❌ [ConfigController] Error syncing profile: $e. Logging out.");
+  //     Get.snackbar("Error Profil", "Gagal memuat profil pengguna: ${e.toString()}. Silakan login kembali.", 
+  //                  snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red, colorText: Colors.white);
+  //     await _authController.logout(); // Memaksa logout
+  //     return false;
+  //   }
+  // }
+
   Future<bool> _syncProfileWithFirestore(String uid) async {
     print("👤 [ConfigController] _syncProfileWithFirestore started for $uid.");
     try {
       final userDoc = await _firestore.collection('Sekolah').doc(idSekolah).collection('pegawai').doc(uid).get();
       if (userDoc.exists && userDoc.data() != null) {
         final Map<String, dynamic> firestoreData = userDoc.data()!;
-        
+
+        // [PERBAIKAN KUNCI DI SINI]
+        // Secara manual tambahkan ID dokumen ke dalam map data.
+        firestoreData['uid'] = uid;
+
         infoUser.value = firestoreData;
-        print("👤 [ConfigController] User profile loaded from Firestore: ${infoUser['nama']}.");
-  
+        print("👤 [ConfigController] User profile loaded from Firestore: ${infoUser['nama']}. UID: ${infoUser['uid']}");
+
         // Buat salinan data untuk cache, lalu iterasi untuk konversi Timestamp
         final Map<String, dynamic> dataForCache = Map<String, dynamic>.from(firestoreData);
-        
+
         dataForCache.forEach((key, value) {
           if (value is Timestamp) {
-            // Konversi SETIAP Timestamp yang ditemukan menjadi String ISO8601
             dataForCache[key] = value.toDate().toIso8601String();
           }
         });
-        
+
         await _box.write('userProfile', dataForCache);
         print("💾 [ConfigController] User profile cached.");
-  
-        // TAMBAHAN BARU: SIMPAN ID SEKOLAH DI KOLEKSI USERS
-        // Ini penting untuk aturan keamanan yang baru
+
         final userRef = _firestore.collection('users').doc(uid);
         await userRef.set({ 'idSekolah': idSekolah }, SetOptions(merge: true));
         print("🌐 [ConfigController] User's school ID synced for security rules.");
-  
+
         return true;
       } else {
         print("🛑 [ConfigController] Profile for $uid not found in Firestore. Logging out.");
         Get.snackbar("Profil Tidak Ditemukan", "Profil pengguna tidak ditemukan di database. Silakan hubungi administrator.", 
                      snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red, colorText: Colors.white);
-        await _authController.logout(); // Memaksa logout
+        await _authController.logout();
         return false;
       }
     } catch (e) {
       print("❌ [ConfigController] Error syncing profile: $e. Logging out.");
       Get.snackbar("Error Profil", "Gagal memuat profil pengguna: ${e.toString()}. Silakan login kembali.", 
                    snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red, colorText: Colors.white);
-      await _authController.logout(); // Memaksa logout
+      await _authController.logout();
       return false;
     }
   }

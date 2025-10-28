@@ -112,6 +112,9 @@ abstract class Routes {
   static const CATATAN_BK_LIST = _Paths.CATATAN_BK_LIST;
   static const CATATAN_BK_DETAIL = _Paths.CATATAN_BK_DETAIL;
   static const DASHBOARD_BK = _Paths.DASHBOARD_BK;
+  static const MANAJEMEN_TUNGGAKAN_AWAL = _Paths.MANAJEMEN_TUNGGAKAN_AWAL;
+  static const MANAJEMEN_KATEGORI_KEUANGAN = _Paths.MANAJEMEN_KATEGORI_KEUANGAN;
+  static const LAPORAN_KEUANGAN_SEKOLAH = _Paths.LAPORAN_KEUANGAN_SEKOLAH;
 }
 
 abstract class _Paths {
@@ -222,4 +225,7 @@ abstract class _Paths {
   static const CATATAN_BK_LIST = '/catatan-bk-list';
   static const CATATAN_BK_DETAIL = '/catatan-bk-detail';
   static const DASHBOARD_BK = '/dashboard-bk';
+  static const MANAJEMEN_TUNGGAKAN_AWAL = '/manajemen-tunggakan-awal';
+  static const MANAJEMEN_KATEGORI_KEUANGAN = '/manajemen-kategori-keuangan';
+  static const LAPORAN_KEUANGAN_SEKOLAH = '/laporan-keuangan-sekolah';
 }

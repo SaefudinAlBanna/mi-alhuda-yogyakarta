@@ -164,6 +164,7 @@ class LaporanJurnalKelasController extends GetxController {
       final doc = pw.Document();
       final boldFont = await PdfGoogleFonts.poppinsBold();
       final logoImage = pw.MemoryImage((await rootBundle.load('assets/png/logo.png')).buffer.asUint8List());
+      final regularFont = await PdfGoogleFonts.poppinsRegular();
 
       final infoSekolahDoc = await _firestore.collection('Sekolah').doc(configC.idSekolah).get();
       final infoSekolah = infoSekolahDoc.data() ?? {};
@@ -180,8 +181,8 @@ class LaporanJurnalKelasController extends GetxController {
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
           // [PERBAIKAN #2] Panggil header secara sinkronus dengan parameter
-          header: (context) => PdfHelperService.buildHeaderA4(infoSekolah: infoSekolah, logoImage: logoImage, boldFont: boldFont),
-          footer: (context) => PdfHelperService.buildFooter(context),
+          header: (context) => PdfHelperService.buildHeaderA4(infoSekolah: infoSekolah, logoImage: logoImage, boldFont: boldFont, regularFont: regularFont,),
+          footer: (context) => PdfHelperService.buildFooter(context, regularFont),
           build: (context) => [
              pw.SizedBox(height: 20),
             pw.Text("Laporan Jurnal Mengajar Kelas ${kelasTerpilih.value!.nama}", style: pw.TextStyle(font: boldFont, fontSize: 14), textAlign: pw.TextAlign.center),

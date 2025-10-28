@@ -117,6 +117,8 @@ import '../modules/laporan_jurnal_pribadi/bindings/laporan_jurnal_pribadi_bindin
 import '../modules/laporan_jurnal_pribadi/views/laporan_jurnal_pribadi_view.dart';
 import '../modules/laporan_keuangan/bindings/laporan_keuangan_binding.dart';
 import '../modules/laporan_keuangan/views/laporan_keuangan_view.dart';
+import '../modules/laporan_keuangan_sekolah/bindings/laporan_keuangan_sekolah_binding.dart';
+import '../modules/laporan_keuangan_sekolah/views/laporan_keuangan_sekolah_view.dart';
 import '../modules/laporan_komite_pimpinan/bindings/laporan_komite_pimpinan_binding.dart';
 import '../modules/laporan_komite_pimpinan/views/laporan_komite_pimpinan_view.dart';
 import '../modules/laporan_perubahan_up/bindings/laporan_perubahan_up_binding.dart';
@@ -127,6 +129,8 @@ import '../modules/manajemen_dashboard/bindings/manajemen_dashboard_binding.dart
 import '../modules/manajemen_dashboard/views/manajemen_dashboard_view.dart';
 import '../modules/manajemen_kalender_akademik/bindings/manajemen_kalender_akademik_binding.dart';
 import '../modules/manajemen_kalender_akademik/views/manajemen_kalender_akademik_view.dart';
+import '../modules/manajemen_kategori_keuangan/bindings/manajemen_kategori_keuangan_binding.dart';
+import '../modules/manajemen_kategori_keuangan/views/manajemen_kategori_keuangan_view.dart';
 import '../modules/manajemen_komite/bindings/manajemen_komite_binding.dart';
 import '../modules/manajemen_komite/views/manajemen_komite_view.dart';
 import '../modules/manajemen_penawaran_buku/bindings/manajemen_penawaran_buku_binding.dart';
@@ -137,6 +141,8 @@ import '../modules/manajemen_peran/bindings/manajemen_peran_binding.dart';
 import '../modules/manajemen_peran/views/manajemen_peran_view.dart';
 import '../modules/manajemen_tugas/bindings/manajemen_tugas_binding.dart';
 import '../modules/manajemen_tugas/views/manajemen_tugas_view.dart';
+import '../modules/manajemen_tunggakan_awal/bindings/manajemen_tunggakan_awal_binding.dart';
+import '../modules/manajemen_tunggakan_awal/views/manajemen_tunggakan_awal_view.dart';
 import '../modules/marketplace/bindings/marketplace_binding.dart';
 import '../modules/marketplace/views/marketplace_view.dart';
 import '../modules/master_ekskul_management/bindings/master_ekskul_management_binding.dart';
@@ -701,6 +707,21 @@ class AppPages {
       name: _Paths.DASHBOARD_BK,
       page: () => const DashboardBkView(),
       binding: DashboardBkBinding(),
+    ),
+    GetPage(
+      name: _Paths.MANAJEMEN_TUNGGAKAN_AWAL,
+      page: () => const ManajemenTunggakanAwalView(),
+      binding: ManajemenTunggakanAwalBinding(),
+    ),
+    GetPage(
+      name: _Paths.MANAJEMEN_KATEGORI_KEUANGAN,
+      page: () => const ManajemenKategoriKeuanganView(),
+      binding: ManajemenKategoriKeuanganBinding(),
+    ),
+    GetPage(
+      name: _Paths.LAPORAN_KEUANGAN_SEKOLAH,
+      page: () => const LaporanKeuanganSekolahView(),
+      binding: LaporanKeuanganSekolahBinding(),
     ),
   ];
 }

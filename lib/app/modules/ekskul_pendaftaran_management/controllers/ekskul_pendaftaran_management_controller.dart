@@ -129,6 +129,7 @@ class EkskulPendaftaranManagementController extends GetxController {
       final doc = pw.Document();
       final boldFont = await PdfGoogleFonts.poppinsBold();
       final logoImage = pw.MemoryImage((await rootBundle.load('assets/png/logo.png')).buffer.asUint8List());
+      final regularFont = await PdfGoogleFonts.poppinsRegular();
 
       final infoSekolahDoc = await _firestore.collection('Sekolah').doc(configC.idSekolah).get();
       final infoSekolah = infoSekolahDoc.data() ?? {};
@@ -151,8 +152,8 @@ class EkskulPendaftaranManagementController extends GetxController {
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
-          header: (context) => PdfHelperService.buildHeaderA4(infoSekolah: infoSekolah, logoImage: logoImage, boldFont: boldFont),
-          footer: (context) => PdfHelperService.buildFooter(context),
+          header: (context) => PdfHelperService.buildHeaderA4(infoSekolah: infoSekolah, logoImage: logoImage, boldFont: boldFont, regularFont: regularFont,),
+          footer: (context) => PdfHelperService.buildFooter(context, regularFont),
           build: (context) => [
             pw.SizedBox(height: 20),
             pw.Text(pendaftaranData['judul'], style: pw.TextStyle(font: boldFont, fontSize: 14), textAlign: pw.TextAlign.center),

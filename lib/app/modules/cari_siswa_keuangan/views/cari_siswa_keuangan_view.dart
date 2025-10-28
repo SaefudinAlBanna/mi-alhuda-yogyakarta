@@ -77,6 +77,11 @@ class CariSiswaKeuanganView extends GetView<CariSiswaKeuanganController> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+      onPressed: () => Get.toNamed(Routes.MANAJEMEN_TUNGGAKAN_AWAL),
+        icon: const Icon(Icons.post_add_rounded),
+        label: const Text("Input Tunggakan Awal"),
+      ),
     );
   }
 
