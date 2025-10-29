@@ -12,13 +12,22 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw; // Dibutuhkan untuk MemoryImage
 import 'package:printing/printing.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../controllers/config_controller.dart';
 import '../../../services/pdf_helper_service.dart';
 import '../../../widgets/number_input_formatter.dart';
 
-class LaporanKeuanganSekolahController extends GetxController {
+class LaporanKeuanganSekolahController extends GetxController with GetTickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ConfigController configC = Get.find<ConfigController>();
+
+  late TabController tabController; 
+
+  // --- State untuk Anggaran ---
+  final RxMap<String, int> dataAnggaran = <String, int>{}.obs;
+  StreamSubscription? _budgetSub;
+
+
 
   // --- State untuk PDF ---
   final isExporting = false.obs;
@@ -62,9 +71,43 @@ class LaporanKeuanganSekolahController extends GetxController {
   // [BARU] Helper untuk mengetahui jika ada filter aktif
   bool get isFilterActive => filterBulanTahun.value != null || filterJenis.value != null || filterKategori.value != null;
 
+  // [BARU] Computed property untuk menggabungkan anggaran dan realisasi
+  RxList<Map<String, dynamic>> get analisisAnggaran {
+    final List<Map<String, dynamic>> result = [];
+    
+    // Hitung realisasi dari semua transaksi
+    final Map<String, double> realisasi = {};
+    for (var trx in _semuaTransaksiTahunIni) {
+      if (trx['jenis'] == 'Pengeluaran' && trx['kategori'] != 'Transfer Keluar') {
+        final kategori = trx['kategori'] as String;
+        final jumlah = (trx['jumlah'] as num).toDouble();
+        realisasi[kategori] = (realisasi[kategori] ?? 0.0) + jumlah;
+      }
+    }
+    
+    // Gabungkan dengan data anggaran
+    dataAnggaran.forEach((kategori, anggaran) {
+      result.add({
+        'kategori': kategori,
+        'anggaran': anggaran,
+        'realisasi': realisasi[kategori] ?? 0.0,
+      });
+    });
+    
+    // Urutkan berdasarkan sisa anggaran paling sedikit
+    result.sort((a, b) {
+      final sisaA = (a['anggaran'] as int) - (a['realisasi'] as double);
+      final sisaB = (b['anggaran'] as int) - (b['realisasi'] as double);
+      return sisaA.compareTo(sisaB);
+    });
+
+    return result.obs;
+  }
+
   @override
   void onInit() {
     super.onInit();
+    tabController = TabController(length: 3, vsync: this); 
     _fetchDaftarTahun();
     _fetchKategoriPengeluaran();
   }
@@ -101,13 +144,15 @@ class LaporanKeuanganSekolahController extends GetxController {
     isLoading.value = true;
     tahunTerpilih.value = tahun;
     summaryData.clear();
-    _semuaTransaksiTahunIni.clear(); // [MODIFIKASI 3] Clear list mentah
-    resetFilter(closeDialog: false); // Reset filter saat ganti tahun
+    _semuaTransaksiTahunIni.clear();
+    dataAnggaran.clear(); // [BARU] Hapus data anggaran lama
+    resetFilter(closeDialog: false);
 
     await _summarySub?.cancel();
     await _transaksiSub?.cancel();
+    await _budgetSub?.cancel(); // [BARU] Batalkan listener anggaran lama
 
-    final tahunRef = _firestore
+      final tahunRef = _firestore
         .collection('Sekolah').doc(configC.idSekolah)
         .collection('tahunAnggaran').doc(tahun);
 
@@ -130,6 +175,15 @@ class LaporanKeuanganSekolahController extends GetxController {
     }, onError: (e) {
       Get.snackbar("Error", "Gagal memuat transaksi: $e");
       isLoading.value = false;
+    });
+    
+    _budgetSub = tahunRef.collection('anggaran').doc('data_anggaran').snapshots().listen((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        final budgets = snapshot.data()!['anggaranPengeluaran'] as Map<String, dynamic>? ?? {};
+        dataAnggaran.value = budgets.map((key, value) => MapEntry(key, (value as num).toInt()));
+      } else {
+        dataAnggaran.clear(); // Jika dokumen tidak ada, pastikan data kosong
+      }
     });
   }
 
@@ -352,23 +406,40 @@ class LaporanKeuanganSekolahController extends GetxController {
   }
 
   Future<String?> _uploadBuktiKeSupabase(File file) async {
-    // INI ADALAH TEMPAT ANDA MENGINTEGRASIKAN LOGIKA UPLOAD KE SUPABASE
-    // Ganti kode di bawah ini dengan Supabase Client Anda
     isUploading.value = true;
     try {
-      // CONTOH:
-      // final path = '/bukti-transaksi/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      // await supabase.storage.from('nama-bucket-anda').upload(path, file);
-      // final url = supabase.storage.from('nama-bucket-anda').getPublicUrl(path);
-      // return url;
-
-      // Untuk sekarang, kita simulasikan proses upload
-      await Future.delayed(const Duration(seconds: 2));
-      print("### Simulasi Upload Berhasil");
-      return "https://simulasi.url/bukti/kwitansi.jpg";
-
+      // 1. Dapatkan ekstensi file (selalu .jpg karena kita kompres ke jpg)
+      const fileExtension = 'jpg';
+      // 2. Buat path file yang unik di dalam bucket
+      final filePath = 'public/bukti-transaksi/${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+      // 'public' adalah folder di dalam bucket, Anda bisa meniadakannya jika tidak perlu
+      
+      final supabase = Supabase.instance.client;
+  
+      // 3. Upload file
+      await supabase.storage
+          .from('bukti-transaksi') // Nama bucket yang sudah Anda buat
+          .upload(
+            filePath,
+            file,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          );
+  
+      // 4. Dapatkan URL publiknya
+      final publicUrl = supabase.storage
+          .from('bukti-transaksi')
+          .getPublicUrl(filePath);
+          
+      print("### Upload Supabase Berhasil. URL: $publicUrl");
+      return publicUrl;
+  
+    } on StorageException catch (e) {
+      // Tangani error spesifik dari Supabase
+      Get.snackbar("Error Supabase", "Gagal mengunggah bukti: ${e.message}");
+      print("### Supabase Storage Error: ${e.message}");
+      return null;
     } catch (e) {
-      Get.snackbar("Error Upload", "Gagal mengunggah bukti: $e");
+      Get.snackbar("Error Upload", "Terjadi kesalahan saat mengunggah: ${e.toString()}");
       return null;
     } finally {
       isUploading.value = false;
@@ -551,19 +622,19 @@ class LaporanKeuanganSekolahController extends GetxController {
 
   Future<void> _simpanTransaksi(String jenis, Map<String, dynamic> data) async {
     final int jumlah = data['jumlah'];
-  
+
     final tahunRef = _firestore
           .collection('Sekolah').doc(configC.idSekolah)
           .collection('tahunAnggaran').doc(tahunTerpilih.value!);
-  
+
     try {
       await _firestore.runTransaction((transaction) async {
         final pencatatUid = configC.infoUser['uid'];
-        final pencatatNama = configC.infoUser['nama'] ?? 'User';
-        
-        // [MODIFIKASI KUNCI] Buat satu timestamp bersama untuk semua operasi
+        // [REVISI KUNCI] Menggunakan alias jika ada, fallback ke nama
+        final pencatatNama = configC.infoUser['alias'] ?? configC.infoUser['nama'] ?? 'User';
+
         final sharedTimestamp = Timestamp.now();
-  
+
         if (jenis == 'Pemasukan' || jenis == 'Pengeluaran') {
           final Map<String, dynamic> dataTransaksi = {
             'tanggal': sharedTimestamp,
@@ -574,51 +645,48 @@ class LaporanKeuanganSekolahController extends GetxController {
             'kategori': (jenis == 'Pemasukan') ? 'Pemasukan Lain-Lain' : data['kategori'],
             'urlBuktiTransaksi': (jenis == 'Pengeluaran') ? data['urlBukti'] : null,
             'diinputOleh': pencatatUid,
-            'diinputOlehNama': pencatatNama,
+            'diinputOlehNama': pencatatNama, // Menggunakan variabel yang sudah direvisi
           };
-  
+
           final Map<String, dynamic> dataSummaryUpdate = {
             (jenis == 'Pemasukan' ? 'totalPemasukan' : 'totalPengeluaran'): FieldValue.increment(jumlah),
             'saldoAkhir': FieldValue.increment(jenis == 'Pemasukan' ? jumlah : -jumlah),
             (data['sumberDana'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(jenis == 'Pemasukan' ? jumlah : -jumlah),
           };
-  
+
           transaction.set(tahunRef.collection('transaksi').doc(), dataTransaksi);
           transaction.set(tahunRef, dataSummaryUpdate, SetOptions(merge: true));
-  
-        } else { // [MODIFIKASI KUNCI] Logika baru untuk 'Transfer' (Double-Entry)
-          
-          final transferId = tahunRef.collection('transaksi').doc().id; // Gunakan ID doc sebagai ID transfer
-  
-          // 1. Buat Dokumen Pengeluaran (Transfer Keluar)
+
+        } else { // Logika 'Transfer' (Double-Entry)
+
+          final transferId = tahunRef.collection('transaksi').doc().id;
+
           final dataPengeluaran = {
             'tanggal': sharedTimestamp,
             'jenis': 'Pengeluaran',
             'jumlah': jumlah,
             'keterangan': data['keterangan'],
             'sumberDana': data['dariKas'],
-            'kategori': 'Transfer Keluar', // Kategori sistem
+            'kategori': 'Transfer Keluar',
             'diinputOleh': pencatatUid,
-            'diinputOlehNama': pencatatNama,
-            'transferId': transferId, // Tautan
+            'diinputOlehNama': pencatatNama, // Menggunakan variabel yang sudah direvisi
+            'transferId': transferId,
           };
           transaction.set(tahunRef.collection('transaksi').doc(), dataPengeluaran);
-  
-          // 2. Buat Dokumen Pemasukan (Transfer Masuk)
+
           final dataPemasukan = {
             'tanggal': sharedTimestamp,
             'jenis': 'Pemasukan',
             'jumlah': jumlah,
             'keterangan': data['keterangan'],
             'sumberDana': data['keKas'],
-            'kategori': 'Transfer Masuk', // Kategori sistem
+            'kategori': 'Transfer Masuk',
             'diinputOleh': pencatatUid,
-            'diinputOlehNama': pencatatNama,
-            'transferId': transferId, // Tautan
+            'diinputOlehNama': pencatatNama, // Menggunakan variabel yang sudah direvisi
+            'transferId': transferId,
           };
           transaction.set(tahunRef.collection('transaksi').doc(), dataPemasukan);
-  
-          // 3. Update Saldo Kas & Bank, sementara Saldo Akhir tetap
+
           final Map<String, dynamic> dataSummaryUpdate = {
             (data['dariKas'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(-jumlah),
             (data['keKas'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(jumlah),
@@ -626,10 +694,10 @@ class LaporanKeuanganSekolahController extends GetxController {
           transaction.set(tahunRef, dataSummaryUpdate, SetOptions(merge: true));
         }
       });
-      
-      Get.back(); // Tutup dialog
+
+      Get.back();
       Get.snackbar("Berhasil", "$jenis berhasil dicatat.", backgroundColor: Colors.green, colorText: Colors.white);
-  
+
     } catch(e) {
       Get.snackbar("Error", "Gagal menyimpan transaksi: ${e.toString()}");
     } finally {
@@ -639,8 +707,11 @@ class LaporanKeuanganSekolahController extends GetxController {
 
   @override
   void onClose() {
+    // [MODIFIKASI 4] Pastikan semua subscription dibatalkan
+    tabController.dispose();
     _summarySub?.cancel();
     _transaksiSub?.cancel();
+    _budgetSub?.cancel(); 
     super.onClose();
   }
 
@@ -714,5 +785,185 @@ class LaporanKeuanganSekolahController extends GetxController {
     } finally {
       isExporting.value = false;
     }
+  }
+
+  // [FUNGSI BARU] Menampilkan detail transaksi dengan tombol koreksi
+  void showDetailTransaksiDialog(Map<String, dynamic> trx) {
+    final jumlah = trx['jumlah'] ?? 0;
+    final tanggal = (trx['tanggal'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final keterangan = trx['keterangan'] ?? 'N/A';
+    final pencatat = trx['diinputOlehNama'] ?? 'N/A';
+    final jenis = trx['jenis'] ?? 'N/A';
+
+    Get.defaultDialog(
+      title: "Detail Transaksi",
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Jenis: $jenis"),
+          const SizedBox(height: 8),
+          Text("Jumlah: ${formatRupiah(jumlah)}"),
+          const SizedBox(height: 8),
+          Text("Tanggal: ${DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(tanggal)}"),
+          const SizedBox(height: 8),
+          Text("Keterangan: $keterangan"),
+           const SizedBox(height: 8),
+          Text("Dicatat oleh: $pencatat"),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: Get.back, child: const Text("Tutup")),
+        // Tampilkan tombol koreksi hanya jika ini bukan transaksi transfer
+        if (jenis != 'Transfer')
+          ElevatedButton(
+            onPressed: () {
+              Get.back(); // Tutup dialog detail
+              showKoreksiDialog(trx); // Buka dialog koreksi
+            },
+            child: const Text("Buat Koreksi"),
+          ),
+      ],
+    );
+  }
+
+  // [FUNGSI BARU] Menampilkan form untuk membuat koreksi
+  void showKoreksiDialog(Map<String, dynamic> trxAsli) {
+    final formKey = GlobalKey<FormState>();
+    final jumlahBenarC = TextEditingController(text: (trxAsli['jumlah'] ?? 0).toString());
+    final alasanC = TextEditingController();
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text("Buat Transaksi Koreksi"),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Koreksi untuk: ${trxAsli['keterangan']}"),
+                const Divider(),
+                TextFormField(
+                  controller: jumlahBenarC,
+                  decoration: const InputDecoration(labelText: "Jumlah Seharusnya", prefixText: "Rp "),
+                  inputFormatters: [NumberInputFormatter()],
+                  keyboardType: TextInputType.number,
+                  validator: (v) => (v == null || v.isEmpty) ? "Wajib diisi" : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: alasanC,
+                  decoration: const InputDecoration(labelText: "Alasan Koreksi"),
+                  validator: (v) => (v == null || v.isEmpty) ? "Wajib diisi" : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: Get.back, child: const Text("Batal")),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                _konfirmasiKoreksi(
+                  trxAsli: trxAsli,
+                  jumlahBenar: int.tryParse(jumlahBenarC.text.replaceAll('.', '')) ?? 0,
+                  alasan: alasanC.text,
+                );
+              }
+            },
+            child: const Text("Simpan Koreksi"),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  // [FUNGSI BARU] Menampilkan dialog konfirmasi sebelum menyimpan koreksi
+  void _konfirmasiKoreksi({
+    required Map<String, dynamic> trxAsli,
+    required int jumlahBenar,
+    required String alasan,
+  }) {
+    final jumlahLama = trxAsli['jumlah'] as int;
+    final selisih = jumlahBenar - jumlahLama;
+
+    if (selisih == 0) {
+      Get.snackbar("Informasi", "Jumlah yang dimasukkan sama dengan jumlah lama. Tidak ada koreksi yang dibuat.");
+      return;
+    }
+
+    final jumlahKoreksi = selisih.abs();
+    final jenisKoreksi = (trxAsli['jenis'] == 'Pemasukan' && selisih < 0) || (trxAsli['jenis'] == 'Pengeluaran' && selisih > 0)
+        ? 'Pengeluaran'
+        : 'Pemasukan';
+
+    Get.defaultDialog(
+      title: "Konfirmasi Koreksi",
+      middleText: "Ini akan membuat transaksi $jenisKoreksi baru sebesar ${formatRupiah(jumlahKoreksi)} untuk menyeimbangkan pembukuan. Lanjutkan?",
+      confirm: Obx(() => ElevatedButton(
+        onPressed: isSaving.value ? null : () async {
+          isSaving.value = true;
+          Get.back(); // Tutup konfirmasi
+          Get.back(); // Tutup form koreksi
+
+          // Siapkan data untuk dikirim ke fungsi simpan
+          final dataKoreksi = {
+            'jumlah': jumlahKoreksi,
+            'keterangan': "Koreksi untuk Trx ID: ${trxAsli['id'].substring(0, 6)}... (${trxAsli['keterangan']}). Alasan: $alasan",
+            'kategori': trxAsli['kategori'],
+            'sumberDana': trxAsli['sumberDana'],
+            'dariKas': null, 'keKas': null, 'urlBukti': null, // Field tidak relevan untuk koreksi
+          };
+
+          await _simpanTransaksi(jenisKoreksi, dataKoreksi);
+        },
+        child: Text(isSaving.value ? "MEMPROSES..." : "Ya, Lanjutkan"),
+      )),
+      cancel: TextButton(onPressed: Get.back, child: const Text("Batal")),
+    );
+  }
+
+  // [BARU] Data untuk Bar Chart (Pemasukan vs Pengeluaran per Bulan)
+  Rx<Map<int, Map<String, double>>> get dataGrafikBulanan {
+    final Map<int, Map<String, double>> data = {};
+    // Inisialisasi 12 bulan dengan nilai 0
+    for (int i = 1; i <= 12; i++) {
+      data[i] = {'pemasukan': 0.0, 'pengeluaran': 0.0};
+    }
+
+    // Olah semua transaksi (bukan hanya yang difilter)
+    for (var trx in _semuaTransaksiTahunIni) {
+      final tanggal = (trx['tanggal'] as Timestamp).toDate();
+      final bulan = tanggal.month;
+      final jumlah = (trx['jumlah'] as num).toDouble();
+      final jenis = trx['jenis'] as String;
+
+      if (jenis == 'Pemasukan' && trx['kategori'] != 'Transfer Masuk') {
+        data[bulan]!['pemasukan'] = (data[bulan]!['pemasukan'] ?? 0.0) + jumlah;
+      } else if (jenis == 'Pengeluaran' && trx['kategori'] != 'Transfer Keluar') {
+        data[bulan]!['pengeluaran'] = (data[bulan]!['pengeluaran'] ?? 0.0) + jumlah;
+      }
+    }
+    return Rx(data);
+  }
+
+  // [BARU] Data untuk Pie Chart (Distribusi Kategori Pengeluaran)
+  Rx<Map<String, double>> get dataDistribusiPengeluaran {
+    final Map<String, double> data = {};
+
+    // Olah semua transaksi pengeluaran (bukan hanya yang difilter)
+    for (var trx in _semuaTransaksiTahunIni) {
+      final jenis = trx['jenis'] as String;
+      final kategori = trx['kategori'] as String?;
+      final jumlah = (trx['jumlah'] as num).toDouble();
+
+      if (jenis == 'Pengeluaran' && kategori != null && kategori != 'Transfer Keluar') {
+        data[kategori] = (data[kategori] ?? 0.0) + jumlah;
+      }
+    }
+    return Rx(data);
   }
 }

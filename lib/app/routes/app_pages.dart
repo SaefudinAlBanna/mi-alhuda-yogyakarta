@@ -125,6 +125,8 @@ import '../modules/laporan_perubahan_up/bindings/laporan_perubahan_up_binding.da
 import '../modules/laporan_perubahan_up/views/laporan_perubahan_up_view.dart';
 import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
+import '../modules/manajemen_anggaran/bindings/manajemen_anggaran_binding.dart';
+import '../modules/manajemen_anggaran/views/manajemen_anggaran_view.dart';
 import '../modules/manajemen_dashboard/bindings/manajemen_dashboard_binding.dart';
 import '../modules/manajemen_dashboard/views/manajemen_dashboard_view.dart';
 import '../modules/manajemen_kalender_akademik/bindings/manajemen_kalender_akademik_binding.dart';
@@ -722,6 +724,11 @@ class AppPages {
       name: _Paths.LAPORAN_KEUANGAN_SEKOLAH,
       page: () => const LaporanKeuanganSekolahView(),
       binding: LaporanKeuanganSekolahBinding(),
+    ),
+    GetPage(
+      name: _Paths.MANAJEMEN_ANGGARAN,
+      page: () => const ManajemenAnggaranView(),
+      binding: ManajemenAnggaranBinding(),
     ),
   ];
 }

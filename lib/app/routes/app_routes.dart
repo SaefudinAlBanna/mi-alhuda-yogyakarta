@@ -115,6 +115,7 @@ abstract class Routes {
   static const MANAJEMEN_TUNGGAKAN_AWAL = _Paths.MANAJEMEN_TUNGGAKAN_AWAL;
   static const MANAJEMEN_KATEGORI_KEUANGAN = _Paths.MANAJEMEN_KATEGORI_KEUANGAN;
   static const LAPORAN_KEUANGAN_SEKOLAH = _Paths.LAPORAN_KEUANGAN_SEKOLAH;
+  static const MANAJEMEN_ANGGARAN = _Paths.MANAJEMEN_ANGGARAN;
 }
 
 abstract class _Paths {
@@ -228,4 +229,5 @@ abstract class _Paths {
   static const MANAJEMEN_TUNGGAKAN_AWAL = '/manajemen-tunggakan-awal';
   static const MANAJEMEN_KATEGORI_KEUANGAN = '/manajemen-kategori-keuangan';
   static const LAPORAN_KEUANGAN_SEKOLAH = '/laporan-keuangan-sekolah';
+  static const MANAJEMEN_ANGGARAN = '/manajemen-anggaran';
 }
