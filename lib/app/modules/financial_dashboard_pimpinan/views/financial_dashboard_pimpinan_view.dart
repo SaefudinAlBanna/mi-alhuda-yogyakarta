@@ -30,7 +30,7 @@ class FinancialDashboardPimpinanView extends GetView<FinancialDashboardPimpinanC
             ),
           ),
           _buildKeuanganSekolahCard(),
-          _buildKeuanganKomiteCard(), // Widget ini akan kita rombak total
+          // _buildKeuanganKomiteCard(), // Widget ini akan kita rombak total
         ],
       );
     });

@@ -290,7 +290,9 @@ class _LaporanKeuanganSekolahViewState extends State<LaporanKeuanganSekolahView>
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             clipBehavior: Clip.antiAlias,
-            child: ListTile(
+            child: InkWell( // Menggunakan InkWell agar seluruh baris bisa diklik
+              onTap: () => _showDetailTransaksiDialog(trx), // Panggil helper dari View
+              child: ListTile(
               onTap: () => _showDetailTransaksiDialog(trx), // Panggil dialog detail
               leading: CircleAvatar(
                 backgroundColor: color.withOpacity(0.1),
@@ -315,6 +317,7 @@ class _LaporanKeuanganSekolahViewState extends State<LaporanKeuanganSekolahView>
                 ],
               ),
             ),
+            ),
           );
         },
       );
@@ -322,83 +325,64 @@ class _LaporanKeuanganSekolahViewState extends State<LaporanKeuanganSekolahView>
   }
 
   void _showDetailTransaksiDialog(Map<String, dynamic> trx) {
-    final jumlah = trx['jumlah'] ?? 0;
-    final tanggal = (trx['tanggal'] as Timestamp?)?.toDate() ?? DateTime.now();
-    final keterangan = trx['keterangan'] ?? 'N/A';
-    final pencatat = trx['diinputOlehNama'] ?? 'N/A';
-    final jenis = trx['jenis'] ?? 'N/A';
-    final urlBukti = trx['urlBuktiTransaksi'] as String?;
-
     Get.defaultDialog(
       title: "Detail Transaksi",
-      content: SingleChildScrollView( // Bungkus dengan SingleChildScrollView
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow("Jenis", jenis),
-            _buildDetailRow("Jumlah", controller.formatRupiah(jumlah)),
-            _buildDetailRow("Tanggal", DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(tanggal)),
-            _buildDetailRow("Keterangan", keterangan),
-            _buildDetailRow("Dicatat oleh", pencatat),
-            
-            // Lapis 2: Thumbnail & Akses Detail di Dialog
-            if (urlBukti != null && urlBukti.isNotEmpty) ...[
-              const Divider(height: 24),
-              const Text("Bukti Transaksi:", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Center(
-                child: Image.network(
-                  urlBukti,
-                  height: 150,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return const Center(child: CircularProgressIndicator());
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.error, color: Colors.red);
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.open_in_new),
-                  label: const Text("Lihat Ukuran Penuh"),
-                  onPressed: () => _launchURL(urlBukti),
-                ),
-              )
-            ]
-          ],
-        ),
+      // [PERBAIKAN KUNCI] Gunakan contentPadding dan Column sederhana
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildDetailRowForDialog("Jenis", trx['jenis'] as String? ?? 'N/A'),
+          if (trx['sumberDana'] != null) _buildDetailRowForDialog("Sumber Dana", trx['sumberDana'] as String),
+          _buildDetailRowForDialog("Jumlah", controller.formatRupiah(trx['jumlah'] ?? 0)),
+          _buildDetailRowForDialog("Tanggal", DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format((trx['tanggal'] as Timestamp?)?.toDate() ?? DateTime.now())),
+          _buildDetailRowForDialog("Keterangan", trx['keterangan'] as String? ?? 'N/A'),
+          _buildDetailRowForDialog("Dicatat oleh", trx['diinputOlehNama'] as String? ?? 'N/A'),
+          if (trx['koreksiDariTrxId'] != null) _buildDetailRowForDialog("Mengkoreksi Trx", trx['koreksiDariTrxId'] as String),
+        ],
       ),
       actions: [
         TextButton(onPressed: Get.back, child: const Text("Tutup")),
-        if (jenis != 'Transfer' && jenis != 'Transfer Masuk' && jenis != 'Transfer Keluar')
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              controller.showKoreksiDialog(trx); // Ubah nama fungsi panggil
-            },
-            child: const Text("Buat Koreksi"),
-          ),
+        ElevatedButton(
+          onPressed: () {
+            // Tombol ini HANYA memanggil handler utama di controller
+            controller.handleKoreksi(trx);
+          },
+          child: const Text("Buat Koreksi"),
+        ),
       ],
     );
   }
 
-  Widget _buildDetailRow(String title, String value) {
+  // [HELPER BARU] Pindahkan helper ini ke dalam View
+  Widget _buildDetailRowForDialog(String title, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 80, child: Text(title, style: TextStyle(color: Colors.grey.shade600))),
-          const Text(": "),
-          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
-        ],
-      ),
-    );
-  }
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 90, child: Text(title, style: TextStyle(color: Colors.grey.shade600))),
+            const Text(": "),
+            Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
+          ],
+        ),
+      );
+   }
+
+  // Widget _buildDetailRow(String title, String value) {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(vertical: 4.0),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         SizedBox(width: 80, child: Text(title, style: TextStyle(color: Colors.grey.shade600))),
+  //         const Text(": "),
+  //         Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Future<void> _launchURL(String url) async {
     final uri = Uri.parse(url);

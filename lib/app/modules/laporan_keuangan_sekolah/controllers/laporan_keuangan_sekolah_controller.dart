@@ -588,6 +588,27 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
     }
 
     final jumlah = jumlahC.text;
+    final int jumlahInt = int.tryParse(jumlah.replaceAll('.', '')) ?? 0;
+
+    // [MODIFIKASI KUNCI] VALIDASI SALDO SEBELUM KONFIRMASI
+    if (jenis == 'Pengeluaran' || jenis == 'Transfer') {
+      final kasYangDigunakan = (jenis == 'Transfer') ? dariKas : sumberDana;
+      final saldoSaatIni = (kasYangDigunakan == 'Bank')
+          ? (summaryData['saldoBank'] as num?)?.toInt() ?? 0
+          : (summaryData['saldoKasTunai'] as num?)?.toInt() ?? 0;
+
+      if (jumlahInt > saldoSaatIni) {
+        Get.snackbar(
+          "Saldo Tidak Cukup",
+          "Pengeluaran sebesar ${formatRupiah(jumlahInt)} melebihi saldo di $kasYangDigunakan (${formatRupiah(saldoSaatIni)}).",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+        return; // Hentikan proses
+      }
+    }
+    // [AKHIR MODIFIKASI]
 
     Get.defaultDialog(
       title: "Konfirmasi Data",
@@ -603,7 +624,7 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
           }
 
           final data = {
-            'jumlah': int.tryParse(jumlah.replaceAll('.', '')) ?? 0,
+            'jumlah': jumlahInt, // Kirim jumlah yang sudah di-parse
             'keterangan': keteranganC.text,
             'kategori': kategori,
             'sumberDana': sumberDana,
@@ -628,78 +649,75 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
           .collection('tahunAnggaran').doc(tahunTerpilih.value!);
 
     try {
-      await _firestore.runTransaction((transaction) async {
-        final pencatatUid = configC.infoUser['uid'];
-        // [REVISI KUNCI] Menggunakan alias jika ada, fallback ke nama
-        final pencatatNama = configC.infoUser['alias'] ?? configC.infoUser['nama'] ?? 'User';
+      final batch = _firestore.batch();
 
-        final sharedTimestamp = Timestamp.now();
+      final pencatatUid = configC.infoUser['uid'];
+      final pencatatNama = configC.infoUser['alias'] ?? configC.infoUser['nama'] ?? 'User';
 
-        if (jenis == 'Pemasukan' || jenis == 'Pengeluaran') {
-          final Map<String, dynamic> dataTransaksi = {
-            'tanggal': sharedTimestamp,
-            'jenis': jenis,
-            'jumlah': jumlah,
-            'keterangan': data['keterangan'],
-            'sumberDana': data['sumberDana'],
-            'kategori': (jenis == 'Pemasukan') ? 'Pemasukan Lain-Lain' : data['kategori'],
-            'urlBuktiTransaksi': (jenis == 'Pengeluaran') ? data['urlBukti'] : null,
-            'diinputOleh': pencatatUid,
-            'diinputOlehNama': pencatatNama, // Menggunakan variabel yang sudah direvisi
-          };
+      final sharedTimestamp = Timestamp.now();
 
-          final Map<String, dynamic> dataSummaryUpdate = {
-            (jenis == 'Pemasukan' ? 'totalPemasukan' : 'totalPengeluaran'): FieldValue.increment(jumlah),
-            'saldoAkhir': FieldValue.increment(jenis == 'Pemasukan' ? jumlah : -jumlah),
-            (data['sumberDana'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(jenis == 'Pemasukan' ? jumlah : -jumlah),
-          };
+      if (jenis == 'Pemasukan' || jenis == 'Pengeluaran') {
+        final newTransactionRef = tahunRef.collection('transaksi').doc();
+        final Map<String, dynamic> dataTransaksi = {
+          'tanggal': sharedTimestamp, 'jenis': jenis, 'jumlah': jumlah,
+          'keterangan': data['keterangan'], 'sumberDana': data['sumberDana'],
+          'kategori': (jenis == 'Pemasukan') ? 'Pemasukan Lain-Lain' : data['kategori'],
+          'urlBuktiTransaksi': (jenis == 'Pengeluaran') ? data['urlBukti'] : null,
+          'diinputOleh': pencatatUid, 'diinputOlehNama': pencatatNama,
+          if (data['koreksiDariTrxId'] != null) 'koreksiDariTrxId': data['koreksiDariTrxId'],
+        };
 
-          transaction.set(tahunRef.collection('transaksi').doc(), dataTransaksi);
-          transaction.set(tahunRef, dataSummaryUpdate, SetOptions(merge: true));
+        final Map<String, dynamic> dataSummaryUpdate = {
+          (jenis == 'Pemasukan' ? 'totalPemasukan' : 'totalPengeluaran'): FieldValue.increment(jumlah),
+          'saldoAkhir': FieldValue.increment(jenis == 'Pemasukan' ? jumlah : -jumlah),
+          (data['sumberDana'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(jenis == 'Pemasukan' ? jumlah : -jumlah),
+        };
 
-        } else { // Logika 'Transfer' (Double-Entry)
+        batch.set(newTransactionRef, dataTransaksi);
+        batch.set(tahunRef, dataSummaryUpdate, SetOptions(merge: true));
 
-          final transferId = tahunRef.collection('transaksi').doc().id;
+      } else { // 'Transfer'
 
-          final dataPengeluaran = {
-            'tanggal': sharedTimestamp,
-            'jenis': 'Pengeluaran',
-            'jumlah': jumlah,
-            'keterangan': data['keterangan'],
-            'sumberDana': data['dariKas'],
-            'kategori': 'Transfer Keluar',
-            'diinputOleh': pencatatUid,
-            'diinputOlehNama': pencatatNama, // Menggunakan variabel yang sudah direvisi
-            'transferId': transferId,
-          };
-          transaction.set(tahunRef.collection('transaksi').doc(), dataPengeluaran);
+        final transferId = tahunRef.collection('transaksi').doc().id;
 
-          final dataPemasukan = {
-            'tanggal': sharedTimestamp,
-            'jenis': 'Pemasukan',
-            'jumlah': jumlah,
-            'keterangan': data['keterangan'],
-            'sumberDana': data['keKas'],
-            'kategori': 'Transfer Masuk',
-            'diinputOleh': pencatatUid,
-            'diinputOlehNama': pencatatNama, // Menggunakan variabel yang sudah direvisi
-            'transferId': transferId,
-          };
-          transaction.set(tahunRef.collection('transaksi').doc(), dataPemasukan);
+        // 1. Dokumen Pengeluaran (Transfer Keluar)
+        final dataPengeluaran = {
+          'tanggal': sharedTimestamp, 'jenis': 'Pengeluaran', 'jumlah': jumlah,
+          'keterangan': data['keterangan'], 'sumberDana': data['dariKas'],
+          'kategori': 'Transfer Keluar',
+          'diinputOleh': pencatatUid, 'diinputOlehNama': pencatatNama,
+          'transferId': transferId,
+        };
+        // [PERBAIKAN] Gunakan 'batch'
+        batch.set(tahunRef.collection('transaksi').doc(), dataPengeluaran);
 
-          final Map<String, dynamic> dataSummaryUpdate = {
-            (data['dariKas'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(-jumlah),
-            (data['keKas'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(jumlah),
-          };
-          transaction.set(tahunRef, dataSummaryUpdate, SetOptions(merge: true));
-        }
-      });
+        // 2. Dokumen Pemasukan (Transfer Masuk)
+        final dataPemasukan = {
+          'tanggal': sharedTimestamp, 'jenis': 'Pemasukan', 'jumlah': jumlah,
+          'keterangan': data['keterangan'], 'sumberDana': data['keKas'],
+          'kategori': 'Transfer Masuk',
+          'diinputOleh': pencatatUid, 'diinputOlehNama': pencatatNama,
+          'transferId': transferId,
+        };
+        // [PERBAIKAN] Gunakan 'batch'
+        batch.set(tahunRef.collection('transaksi').doc(), dataPemasukan);
 
-      Get.back();
+        // 3. Update Saldo Kas & Bank
+        final Map<String, dynamic> dataSummaryUpdate = {
+          (data['dariKas'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(-jumlah),
+          (data['keKas'] == 'Bank' ? 'saldoBank' : 'saldoKasTunai'): FieldValue.increment(jumlah),
+        };
+        // [PERBAIKAN] Gunakan 'batch'
+        batch.set(tahunRef, dataSummaryUpdate, SetOptions(merge: true));
+      }
+
+      await batch.commit();
+
       Get.snackbar("Berhasil", "$jenis berhasil dicatat.", backgroundColor: Colors.green, colorText: Colors.white);
 
     } catch(e) {
       Get.snackbar("Error", "Gagal menyimpan transaksi: ${e.toString()}");
+      print("### ERROR MENYIMPAN TRANSAKSI: $e");
     } finally {
       isSaving.value = false;
     }
@@ -720,28 +738,72 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
     return "Rp ${NumberFormat.decimalPattern('id_ID').format(number)}";
   }
 
-  // --- [BARU] FUNGSI UNTUK FASE 5 ---
   Future<void> exportToPdf() async {
     if (isExporting.value) return;
     isExporting.value = true;
     
-    // PENANDA VERSI KODE
-    print("### MENJALANKAN KODE PDF VERSI FINAL V2 ###"); 
+    print("### MENJALANKAN KODE PDF DENGAN LOGIKA KOREKSI v3 (DEFENITIF) ###"); 
   
     try {
-      // --- LANGKAH 1: KUMPULKAN SEMUA ASET & DATA ASYNCHRONOUS ---
-      
-      final infoSekolah = await _firestore.collection('Sekolah').doc(configC.idSekolah).get().then((d) {
-        final data = d.data();
-        if (data == null) return <String, dynamic>{};
-        return Map<String, dynamic>.from(data);
-      });
-      
+      // --- LANGKAH 1: PERSIAPAN ASET (TIDAK BERUBAH) ---
+      final infoSekolah = await _firestore.collection('Sekolah').doc(configC.idSekolah).get().then((d) => Map<String, dynamic>.from(d.data() ?? {}));
       final logoBytes = await rootBundle.load('assets/png/logo.png');
       final logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
       final boldFont = await PdfGoogleFonts.poppinsBold();
       final regularFont = await PdfGoogleFonts.poppinsRegular();
   
+      // --- LANGKAH 2: NETTING - Proses data mentah/lengkap ---
+      final List<Map<String, dynamic>> nettedTransactions = [];
+      final Set<String> idTransaksiYangSudahDiproses = {};
+  
+      // Gunakan data mentah '_semuaTransaksiTahunIni' untuk memastikan semua pasangan ditemukan
+      for (var trx in _semuaTransaksiTahunIni) {
+        if (idTransaksiYangSudahDiproses.contains(trx['id'])) continue;
+  
+        final koreksi = _semuaTransaksiTahunIni.firstWhereOrNull(
+          (k) => k['koreksiDariTrxId'] == trx['id']
+        );
+  
+        if (koreksi != null) {
+          idTransaksiYangSudahDiproses.add(trx['id']);
+          idTransaksiYangSudahDiproses.add(koreksi['id']);
+  
+          final trxAsli = Map<String, dynamic>.from(trx);
+          final jumlahLama = trxAsli['jumlah'] as int;
+          final jumlahKoreksi = koreksi['jumlah'] as int;
+          
+          int jumlahBenar;
+          if (trxAsli['jenis'] == koreksi['jenis']) {
+              jumlahBenar = jumlahLama + jumlahKoreksi;
+          } else {
+              jumlahBenar = jumlahLama - jumlahKoreksi;
+          }
+  
+          trxAsli['jumlah'] = jumlahBenar.abs(); // Pastikan jumlah selalu positif
+          trxAsli['keterangan'] = "${trxAsli['keterangan']} (*dikoreksi)";
+          
+          nettedTransactions.add(trxAsli);
+  
+        } else if (trx['koreksiDariTrxId'] == null) {
+          nettedTransactions.add(trx);
+        }
+      }
+      
+      // --- LANGKAH 3: FILTER - Terapkan filter UI pada data yang sudah di-netting ---
+      final List<Map<String, dynamic>> transaksiUntukPdf = nettedTransactions.where((trx) {
+        final tgl = (trx['tanggal'] as Timestamp).toDate();
+        final jenis = trx['jenis'] as String;
+        final kategori = trx['kategori'] as String?;
+  
+        final bool matchBulan = filterBulanTahun.value == null || (tgl.year == filterBulanTahun.value!.year && tgl.month == filterBulanTahun.value!.month);
+        final bool matchJenis = filterJenis.value == null || jenis == filterJenis.value;
+        final bool matchKategori = filterKategori.value == null || kategori == filterKategori.value;
+        
+        return matchBulan && matchJenis && matchKategori;
+      }).toList();
+  
+  
+      // --- LANGKAH 4: RAKIT DOKUMEN PDF (MENGGUNAKAN DATA FINAL) ---
       String filterInfoText = "";
       if (isFilterActive) {
         List<String> filters = [];
@@ -754,28 +816,24 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
       final List<pw.Widget> contentWidgets = await PdfHelperService.buildLaporanKeuanganContent(
         tahunAnggaran: tahunTerpilih.value!,
         summaryData: summaryData,
-        daftarTransaksi: daftarTransaksiTampil.value,
+        daftarTransaksi: transaksiUntukPdf,
         filterInfo: filterInfoText,
       );
       
-      // --- LANGKAH 2: RAKIT DOKUMEN PDF ---
       final pdf = pw.Document();
-      
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           header: (context) => PdfHelperService.buildHeaderA4(
-            infoSekolah: infoSekolah,
-            logoImage: logoImage,
-            boldFont: boldFont,
-            regularFont: regularFont,
+            infoSekolah: infoSekolah, logoImage: logoImage, 
+            boldFont: boldFont, regularFont: regularFont
           ),
           footer: (context) => PdfHelperService.buildFooter(context, regularFont),
           build: (context) => contentWidgets,
         ),
       );
   
-      // --- LANGKAH 3: SIMPAN DAN BAGIKAN PDF ---
+      // --- LANGKAH 5: SIMPAN & BAGIKAN (TIDAK BERUBAH) ---
       final String fileName = 'laporan_keuangan_${tahunTerpilih.value}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
       await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
   
@@ -787,47 +845,152 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
     }
   }
 
-  // [FUNGSI BARU] Menampilkan detail transaksi dengan tombol koreksi
-  void showDetailTransaksiDialog(Map<String, dynamic> trx) {
-    final jumlah = trx['jumlah'] ?? 0;
-    final tanggal = (trx['tanggal'] as Timestamp?)?.toDate() ?? DateTime.now();
-    final keterangan = trx['keterangan'] ?? 'N/A';
-    final pencatat = trx['diinputOlehNama'] ?? 'N/A';
-    final jenis = trx['jenis'] ?? 'N/A';
+  // Future<void> exportToPdf() async {
+  //   if (isExporting.value) return;
+  //   isExporting.value = true;
 
-    Get.defaultDialog(
-      title: "Detail Transaksi",
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Jenis: $jenis"),
-          const SizedBox(height: 8),
-          Text("Jumlah: ${formatRupiah(jumlah)}"),
-          const SizedBox(height: 8),
-          Text("Tanggal: ${DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(tanggal)}"),
-          const SizedBox(height: 8),
-          Text("Keterangan: $keterangan"),
-           const SizedBox(height: 8),
-          Text("Dicatat oleh: $pencatat"),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: Get.back, child: const Text("Tutup")),
-        // Tampilkan tombol koreksi hanya jika ini bukan transaksi transfer
-        if (jenis != 'Transfer')
-          ElevatedButton(
-            onPressed: () {
-              Get.back(); // Tutup dialog detail
-              showKoreksiDialog(trx); // Buka dialog koreksi
-            },
-            child: const Text("Buat Koreksi"),
-          ),
-      ],
-    );
+  //   print("### MENJALANKAN KODE PDF DENGAN LOGIKA KOREKSI ###"); 
+
+  //   try {
+  //     // --- LANGKAH 1: PERSIAPAN ASET (TIDAK BERUBAH) ---
+  //     final infoSekolah = await _firestore.collection('Sekolah').doc(configC.idSekolah).get().then((d) => Map<String, dynamic>.from(d.data() ?? {}));
+  //     final logoBytes = await rootBundle.load('assets/png/logo.png');
+  //     final logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
+  //     final boldFont = await PdfGoogleFonts.poppinsBold();
+  //     final regularFont = await PdfGoogleFonts.poppinsRegular();
+
+  //     // --- LANGKAH 2: [UPGRADE] PRA-PEMROSESAN DATA DENGAN LOGIKA NETTING ---
+  //     final List<Map<String, dynamic>> transaksiUntukPdf = [];
+  //     final Set<String> idTransaksiKoreksi = {}; // Untuk melacak ID transaksi koreksi
+
+  //     // Iterasi pertama: temukan semua transaksi koreksi
+  //     for (var trx in daftarTransaksiTampil.value) {
+  //       if (trx['koreksiDariTrxId'] != null) {
+  //         idTransaksiKoreksi.add(trx['id']);
+  //       }
+  //     }
+
+  //     // Iterasi kedua: bangun daftar final untuk PDF
+  //     for (var trx in daftarTransaksiTampil.value) {
+  //       // Lewati transaksi ini jika ia adalah sebuah transaksi koreksi
+  //       if (idTransaksiKoreksi.contains(trx['id'])) {
+  //         continue;
+  //       }
+
+  //       // Cari apakah transaksi ini memiliki koreksi
+  //       final koreksi = daftarTransaksiTampil.value.firstWhereOrNull(
+  //         (k) => k['koreksiDariTrxId'] == trx['id']
+  //       );
+
+  //       if (koreksi != null) {
+  //         // Jika ada koreksi, buat entri virtual
+  //         final trxAsli = Map<String, dynamic>.from(trx); // Buat salinan
+  //         final jumlahLama = trxAsli['jumlah'] as int;
+  //         final jumlahKoreksi = koreksi['jumlah'] as int;
+
+  //         // Hitung efek bersih
+  //         int jumlahBenar;
+  //         if (trxAsli['jenis'] == 'Pengeluaran') {
+  //           // Pengeluaran 150rb, dikoreksi (Pemasukan) 50rb -> Efek: 100rb
+  //           jumlahBenar = jumlahLama - jumlahKoreksi;
+  //         } else { // Pemasukan
+  //           // Pemasukan 150rb, dikoreksi (Pengeluaran) 50rb -> Efek: 100rb
+  //           jumlahBenar = jumlahLama - jumlahKoreksi;
+  //         }
+
+  //         // Modifikasi entri untuk PDF
+  //         trxAsli['jumlah'] = jumlahBenar;
+  //         trxAsli['keterangan'] = "${trxAsli['keterangan']} (*dikoreksi)";
+
+  //         transaksiUntukPdf.add(trxAsli);
+
+  //       } else {
+  //         // Jika tidak ada koreksi, tambahkan transaksi seperti biasa
+  //         transaksiUntukPdf.add(trx);
+  //       }
+  //     }
+
+
+  //     // --- LANGKAH 3: RAKIT DOKUMEN PDF (MENGGUNAKAN DATA BERSIH) ---
+  //     String filterInfoText = "";
+  //     if (isFilterActive) {
+  //       List<String> filters = [];
+  //       if (filterBulanTahun.value != null) filters.add(DateFormat.yMMMM('id_ID').format(filterBulanTahun.value!));
+  //       if (filterJenis.value != null) filters.add(filterJenis.value!);
+  //       if (filterKategori.value != null) filters.add(filterKategori.value!);
+  //       filterInfoText = filters.join(" | ");
+  //     }
+
+  //     final List<pw.Widget> contentWidgets = await PdfHelperService.buildLaporanKeuanganContent(
+  //       tahunAnggaran: tahunTerpilih.value!,
+  //       summaryData: summaryData,
+  //       daftarTransaksi: transaksiUntukPdf, // [PENTING] Gunakan data yang sudah diproses
+  //       filterInfo: filterInfoText,
+  //     );
+
+  //     final pdf = pw.Document();
+  //     pdf.addPage(
+  //       pw.MultiPage(
+  //         pageFormat: PdfPageFormat.a4,
+  //         header: (context) => PdfHelperService.buildHeaderA4(
+  //           infoSekolah: infoSekolah,
+  //           logoImage: logoImage,
+  //           boldFont: boldFont,
+  //           regularFont: regularFont,
+  //         ),
+  //         footer: (context) => PdfHelperService.buildFooter(context, regularFont),
+  //         build: (context) => contentWidgets,
+  //       ),
+  //     );
+
+  //     // --- LANGKAH 4: SIMPAN & BAGIKAN (TIDAK BERUBAH) ---
+  //     final String fileName = 'laporan_keuangan_${tahunTerpilih.value}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
+  //     await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
+
+  //   } catch (e) {
+  //     Get.snackbar("Error", "Gagal membuat file PDF: ${e.toString()}");
+  //     print("### PDF EXPORT ERROR: $e");
+  //   } finally {
+  //     isExporting.value = false;
+  //   }
+  // }
+
+  // [FUNGSI FINAL #2] Handler utama untuk alur koreksi
+  void handleKoreksi(Map<String, dynamic> trxAsli) {
+    // 1. Cek Pra-kondisi di Sisi Klien
+    final bool isKoreksi = trxAsli['koreksiDariTrxId'] != null;
+    final bool isTransfer = trxAsli['transferId'] != null;
+
+    if (isKoreksi || isTransfer) {
+      Get.snackbar("Tidak Diizinkan", "Transaksi ini tidak dapat dikoreksi.");
+      return;
+    }
+
+    // 2. Tampilkan Loading & Lakukan Pengecekan Real-time ke DB
+    Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+
+    _firestore
+        .collection('Sekolah').doc(configC.idSekolah)
+        .collection('tahunAnggaran').doc(tahunTerpilih.value!)
+        .collection('transaksi')
+        .where('koreksiDariTrxId', isEqualTo: trxAsli['id'])
+        .limit(1)
+        .get()
+        .then((query) {
+          Get.back(); // Tutup loading
+          if (query.docs.isNotEmpty) {
+            Get.snackbar("Sudah Dikoreksi", "Transaksi ini sudah pernah dikoreksi dan tidak dapat dikoreksi lagi.", backgroundColor: Colors.orange.shade800, colorText: Colors.white);
+          } else {
+            // 3. Jika Semua Aman, Baru Buka Form Koreksi
+            _showFormKoreksi(trxAsli);
+          }
+        }).catchError((e) {
+          Get.back(); // Tutup loading
+          Get.snackbar("Error", "Gagal memverifikasi status koreksi: $e");
+        });
   }
 
-  // [FUNGSI BARU] Menampilkan form untuk membuat koreksi
-  void showKoreksiDialog(Map<String, dynamic> trxAsli) {
+  void _showFormKoreksi(Map<String, dynamic> trxAsli) {
     final formKey = GlobalKey<FormState>();
     final jumlahBenarC = TextEditingController(text: (trxAsli['jumlah'] ?? 0).toString());
     final alasanC = TextEditingController();
@@ -849,7 +1012,14 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
                   decoration: const InputDecoration(labelText: "Jumlah Seharusnya", prefixText: "Rp "),
                   inputFormatters: [NumberInputFormatter()],
                   keyboardType: TextInputType.number,
-                  validator: (v) => (v == null || v.isEmpty) ? "Wajib diisi" : null,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return "Wajib diisi";
+                    final val = int.tryParse(v.replaceAll('.', ''));
+                    if (val == null) return "Angka tidak valid";
+                    // [UPGRADE KUNCI] Validasi anti-minus
+                    if (val < 0) return "Jumlah tidak boleh negatif";
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -881,7 +1051,6 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
     );
   }
 
-  // [FUNGSI BARU] Menampilkan dialog konfirmasi sebelum menyimpan koreksi
   void _konfirmasiKoreksi({
     required Map<String, dynamic> trxAsli,
     required int jumlahBenar,
@@ -900,22 +1069,49 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
         ? 'Pengeluaran'
         : 'Pemasukan';
 
-    Get.defaultDialog(
+    // [MODIFIKASI KUNCI] VALIDASI SALDO UNTUK KOREKSI PENGELUARAN
+    if (jenisKoreksi == 'Pengeluaran') {
+      final kasYangDigunakan = trxAsli['sumberDana'] as String?;
+      final saldoSaatIni = (kasYangDigunakan == 'Bank')
+          ? (summaryData['saldoBank'] as num?)?.toInt() ?? 0
+          : (summaryData['saldoKasTunai'] as num?)?.toInt() ?? 0;
+
+      if (jumlahKoreksi > saldoSaatIni) {
+        Get.snackbar(
+          "Saldo Tidak Cukup",
+          "Koreksi ini akan membuat pengeluaran ${formatRupiah(jumlahKoreksi)} dari $kasYangDigunakan, namun saldo hanya ${formatRupiah(saldoSaatIni)}.",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+        return; // Hentikan proses
+      }
+    }
+    // [AKHIR MODIFIKASI]
+
+      Get.defaultDialog(
       title: "Konfirmasi Koreksi",
       middleText: "Ini akan membuat transaksi $jenisKoreksi baru sebesar ${formatRupiah(jumlahKoreksi)} untuk menyeimbangkan pembukuan. Lanjutkan?",
       confirm: Obx(() => ElevatedButton(
         onPressed: isSaving.value ? null : () async {
           isSaving.value = true;
-          Get.back(); // Tutup konfirmasi
-          Get.back(); // Tutup form koreksi
+          Get.back();
+          Get.back();
 
-          // Siapkan data untuk dikirim ke fungsi simpan
+          // [MODIFIKASI KUNCI] Buat keterangan yang ramah pengguna
+          String keteranganAsli = trxAsli['keterangan'] ?? '';
+          // Potong jika terlalu panjang untuk menjaga kebersihan
+          if (keteranganAsli.length > 30) {
+            keteranganAsli = "${keteranganAsli.substring(0, 30)}...";
+          }
+
           final dataKoreksi = {
             'jumlah': jumlahKoreksi,
-            'keterangan': "Koreksi untuk Trx ID: ${trxAsli['id'].substring(0, 6)}... (${trxAsli['keterangan']}). Alasan: $alasan",
+            'keterangan': "Koreksi untuk: '$keteranganAsli'. Alasan: $alasan",
             'kategori': trxAsli['kategori'],
             'sumberDana': trxAsli['sumberDana'],
-            'dariKas': null, 'keKas': null, 'urlBukti': null, // Field tidak relevan untuk koreksi
+            'koreksiDariTrxId': trxAsli['id'], // [BARU] Field teknis untuk developer
+            'dariKas': null, 'keKas': null, 'urlBukti': null,
           };
 
           await _simpanTransaksi(jenisKoreksi, dataKoreksi);
@@ -923,6 +1119,82 @@ class LaporanKeuanganSekolahController extends GetxController with GetTickerProv
         child: Text(isSaving.value ? "MEMPROSES..." : "Ya, Lanjutkan"),
       )),
       cancel: TextButton(onPressed: Get.back, child: const Text("Batal")),
+    );
+  }
+
+  // Widget _buildDetailRowForDialog(String title, String value) {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(vertical: 4.0),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         SizedBox(width: 90, child: Text(title, style: TextStyle(color: Colors.grey.shade600))),
+  //         const Text(": "),
+  //         Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // [FUNGSI BARU] Menampilkan form untuk membuat koreksi
+  void showKoreksiDialog(Map<String, dynamic> trxAsli) {
+    final formKey = GlobalKey<FormState>();
+    final jumlahBenarC = TextEditingController(text: (trxAsli['jumlah'] ?? 0).toString());
+    final alasanC = TextEditingController();
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text("Buat Transaksi Koreksi"),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Koreksi untuk: ${trxAsli['keterangan']}"),
+                const Divider(),
+                TextFormField(
+                  controller: jumlahBenarC,
+                  decoration: const InputDecoration(labelText: "Jumlah Seharusnya", prefixText: "Rp "),
+                  inputFormatters: [NumberInputFormatter()],
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return "Wajib diisi";
+                    final val = int.tryParse(v.replaceAll('.', ''));
+                    if (val == null) return "Angka tidak valid";
+                    // [UPGRADE KUNCI] Validasi anti-minus
+                    if (val < 0) return "Jumlah tidak boleh negatif";
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: alasanC,
+                  decoration: const InputDecoration(labelText: "Alasan Koreksi"),
+                  validator: (v) => (v == null || v.isEmpty) ? "Wajib diisi" : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: Get.back, child: const Text("Batal")),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                _konfirmasiKoreksi(
+                  trxAsli: trxAsli,
+                  jumlahBenar: int.tryParse(jumlahBenarC.text.replaceAll('.', '')) ?? 0,
+                  alasan: alasanC.text,
+                );
+              }
+            },
+            child: const Text("Simpan Koreksi"),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
     );
   }
 
